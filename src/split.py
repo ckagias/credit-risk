@@ -28,6 +28,15 @@ def load_split(con):
     return pd.read_sql("SELECT SK_ID_CURR, part FROM split", con)
 
 
+def load_part(con, part, columns):
+    selected = ", ".join(f'a."{c}"' for c in ["SK_ID_CURR", "TARGET", *columns])
+    return pd.read_sql(
+        f"SELECT {selected} FROM application_train a JOIN split s USING (SK_ID_CURR) WHERE s.part = ? ORDER BY a.SK_ID_CURR",
+        con,
+        params=(part,),
+    )
+
+
 def main():
     con = sqlite3.connect(DB)
     applicants = pd.read_sql("SELECT SK_ID_CURR, TARGET FROM application_train ORDER BY SK_ID_CURR", con)

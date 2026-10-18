@@ -1,0 +1,13 @@
+data/
+plots/
+__pycache__/
+*.pyc
+.venv/
+plan.md
+notes.md
+.ipynb_checkpoints/
+.pytest_cache/
+models/
+mlruns/
+*.db
+*.sqlite

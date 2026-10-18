@@ -33,7 +33,7 @@ def missing_values(con):
         missing = sorted(((n / total, c) for c, n in zip(columns, nulls) if n), reverse=True)
         over_half = sum(1 for share, _ in missing if share > 0.5)
         print(f"\n{table}: {len(columns)} columns, {len(missing)} with missing, {over_half} above 50%")
-        for share, column in missing[:8]:
+        for share, column in missing:
             print(f"  {column:34s} {share:6.1%}")
 
 

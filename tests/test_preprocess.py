@@ -127,10 +127,12 @@ def test_winsorizer_caps_values_at_the_training_percentiles_worked_out_by_hand()
 
 
 def test_winsorizer_leaves_binary_columns_and_missing_values_alone():
-    train = np.column_stack([np.array([0.0] * 998 + [1.0, 1.0]), np.arange(1000, dtype=float)])
+    rare_flag = np.array([0.0] * 3000 + [1.0, 1.0])
+    train = np.column_stack([rare_flag, np.arange(3002, dtype=float)])
     train[5, 1] = np.nan
     clipper = pp.Winsorizer().fit(train)
-    out = clipper.transform(np.array([[1.0, np.nan], [0.0, 5000.0]]))
+    assert np.quantile(rare_flag, pp.CLIP_UPPER) == 0.0
+    out = clipper.transform(np.array([[1.0, np.nan], [0.0, 50000.0]]))
     assert out[0, 0] == 1.0 and out[1, 0] == 0.0
     assert np.isnan(out[0, 1])
     assert out[1, 1] == pytest.approx(clipper.high_[1])

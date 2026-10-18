@@ -118,6 +118,12 @@ def summarize_folds(folds):
     return table
 
 
+def fold_table(folds, model):
+    table = folds[METRICS].agg(["mean", "std", "min", "max"]).T
+    table.index.name = "metric"
+    return table.reset_index().assign(model=model)[["model", "metric", "mean", "std", "min", "max"]]
+
+
 def bootstrap(y, p, n_boot=1000, seed=42, alpha=0.05, threshold=0.5):
     y, p = check_inputs(y, p)
     rng = np.random.default_rng(seed)

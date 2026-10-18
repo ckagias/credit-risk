@@ -51,13 +51,11 @@ def main():
     rows = []
     for name, folds in run_baselines(train).items():
         print(f"\n{name} (5-fold CV, threshold {THRESHOLD} for precision and recall)")
-        table = evaluate.summarize_folds(folds)
-        table["min"] = folds[evaluate.METRICS].min()
-        table["max"] = folds[evaluate.METRICS].max()
-        print(table.round(4).to_string())
-        rows.append(table.rename_axis("metric").reset_index().assign(model=name))
+        table = evaluate.fold_table(folds, name)
+        print(table.drop(columns="model").round(4).to_string(index=False))
+        rows.append(table)
     RESULTS.parent.mkdir(exist_ok=True)
-    pd.concat(rows)[["model", "metric", "mean", "std", "min", "max"]].to_csv(RESULTS, index=False, float_format="%.6f")
+    pd.concat(rows).to_csv(RESULTS, index=False, float_format="%.6f")
 
 
 if __name__ == "__main__":

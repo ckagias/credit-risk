@@ -205,3 +205,14 @@ def test_out_of_fold_predictions_come_from_a_model_that_did_not_see_the_row(toy_
     split = StratifiedKFold(5, shuffle=True, random_state=1).split(X, y)
     per_fold = [ev.roc_auc(y[val], predictions[val]) for _, val in split]
     assert per_fold == pytest.approx(folds["roc_auc"].tolist())
+
+
+def test_fold_table_has_one_row_per_metric_with_mean_std_min_max():
+    folds = pd.DataFrame({"fold": [0, 1, 2], "pr_auc": [0.1, 0.2, 0.3], "roc_auc": [0.5, 0.6, 0.7],
+                          "log_loss": [0.3, 0.3, 0.3], "precision": [0.0, 0.2, 0.4], "recall": [1.0, 1.0, 1.0]})
+    table = ev.fold_table(folds, "toy")
+    assert table["metric"].tolist() == ev.METRICS
+    assert (table["model"] == "toy").all()
+    row = table[table["metric"] == "pr_auc"].iloc[0]
+    assert (row["mean"], row["min"], row["max"]) == pytest.approx((0.2, 0.1, 0.3))
+    assert row["std"] == pytest.approx(0.1)

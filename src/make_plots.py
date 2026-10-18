@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 import baselines
 import evaluate
@@ -18,6 +19,8 @@ INK_SECONDARY = "#52514e"
 GRID = "#e6e5e1"
 MODEL = "#2a78d6"
 REFERENCE = "#8a8985"
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]
+PATH_LINES = 6
 
 
 def style_axis(ax):
@@ -63,9 +66,74 @@ def baseline_curves():
     plt.close(fig)
 
 
+def best_c(curve, penalty):
+    validation = curve[(curve["penalty"] == penalty) & (curve["split"] == "validation")]
+    means = validation.groupby("C")["pr_auc"].mean()
+    return means.idxmax(), means.max()
+
+
+def validation_curve_plot():
+    curve = pd.read_csv("results/regularization_curve.csv")
+    floor = pd.read_csv("results/baselines.csv").query("metric == 'pr_auc' and model.str.startswith('EXT_SOURCE')")["mean"].iloc[0]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), sharey=True, facecolor=SURFACE)
+    for ax, penalty in zip(axes, ("L2", "L1")):
+        for split, color, label in (("train", REFERENCE, "Training folds"), ("validation", MODEL, "Validation fold")):
+            part = curve[(curve["penalty"] == penalty) & (curve["split"] == split)]
+            stats = part.groupby("C")["pr_auc"].agg(["mean", "std"])
+            ax.plot(stats.index, stats["mean"], color=color, linewidth=2 if split == "validation" else 1.5, label=label)
+            if split == "validation":
+                ax.fill_between(stats.index, stats["mean"] - stats["std"], stats["mean"] + stats["std"], color=color, alpha=0.15, linewidth=0)
+        c, value = best_c(curve, penalty)
+        ax.plot([c], [value], marker="o", markersize=8, color=MODEL, markeredgecolor=SURFACE, markeredgewidth=2, zorder=5)
+        ax.annotate(f"best C = {c:g}\nPR-AUC {value:.4f}", (c, value), textcoords="offset points", xytext=(-52 if penalty == "L1" else 0, -40), ha="center", fontsize=9, color=INK)
+        ax.axhline(floor, color=REFERENCE, linewidth=1, alpha=0.6)
+        ax.text(0.985, floor + 0.0007, "EXT_SOURCE baseline", transform=ax.get_yaxis_transform(), ha="right", fontsize=8.5, color=INK_SECONDARY)
+        lowest = curve[(curve["penalty"] == penalty) & (curve["split"] == "validation")].groupby("C")["pr_auc"].mean().min()
+        if lowest < 0.19:
+            ax.text(0.985, 0.15, "C = 0.0001 is off the chart:\nevery score the same, PR-AUC 0.081", transform=ax.transAxes, ha="right", fontsize=8.5, color=INK_SECONDARY)
+        ax.set_xscale("log")
+        ax.set_ylim(0.185, 0.235)
+        ax.set(xlabel="C (larger = weaker penalty)", title=f"{penalty} penalty")
+        style_axis(ax)
+    axes[0].set_ylabel("PR-AUC (5-fold mean, band = 1 std)")
+    axes[0].legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    fig.tight_layout()
+    fig.savefig(OUT / "validation_curve.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def regularization_path_plot():
+    path = pd.read_csv("results/coefficient_path.csv")
+    top = (
+        path[(path["penalty"] == "L2") & (path["C"] == path["C"].max())]
+        .assign(size=lambda d: d["coefficient"].abs())
+        .nlargest(PATH_LINES, "size")["feature"]
+        .tolist()
+    )
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), sharey=True, facecolor=SURFACE)
+    for ax, penalty in zip(axes, ("L2", "L1")):
+        part = path[path["penalty"] == penalty]
+        wide = part.pivot(index="C", columns="feature", values="coefficient")
+        for feature in wide.columns.difference(top):
+            ax.plot(wide.index, wide[feature], color=GRID, linewidth=0.8, zorder=1)
+        for color, feature in zip(SERIES, top):
+            ax.plot(wide.index, wide[feature], color=color, linewidth=2, label=feature.split("__", 1)[1], zorder=3)
+        ax.axhline(0, color=INK_SECONDARY, linewidth=0.8, zorder=2)
+        ax.set_xscale("log")
+        ax.set(xlabel="C (larger = weaker penalty)", title=f"{penalty} penalty")
+        style_axis(ax)
+    axes[0].set_ylabel("Coefficient (standardized columns)")
+    axes[0].legend(loc="upper left", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    fig.tight_layout()
+    fig.savefig(OUT / "regularization_path.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
+    validation_curve_plot()
+    regularization_path_plot()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,11 @@
+scikit-learn
+lightgbm
+xgboost
+pandas
+pyarrow
+matplotlib
+shap
+optuna
+mlflow
+fastapi
+pytest

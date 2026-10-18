@@ -37,21 +37,27 @@ def positives_and_negatives(y):
     return n_pos, n_neg
 
 
-def pr_auc(y, p):
+def pr_curve(y, p):
     y, p = check_inputs(y, p)
     n_pos, _ = positives_and_negatives(y)
     tp, fp = counts_by_threshold(y, p)
-    precision = tp / (tp + fp)
-    recall = tp / n_pos
+    return tp / n_pos, tp / (tp + fp)
+
+
+def roc_curve(y, p):
+    y, p = check_inputs(y, p)
+    n_pos, n_neg = positives_and_negatives(y)
+    tp, fp = counts_by_threshold(y, p)
+    return np.r_[0.0, fp / n_neg], np.r_[0.0, tp / n_pos]
+
+
+def pr_auc(y, p):
+    recall, precision = pr_curve(y, p)
     return float(np.sum(np.diff(np.r_[0.0, recall]) * precision))
 
 
 def roc_auc(y, p):
-    y, p = check_inputs(y, p)
-    n_pos, n_neg = positives_and_negatives(y)
-    tp, fp = counts_by_threshold(y, p)
-    tpr = np.r_[0.0, tp / n_pos]
-    fpr = np.r_[0.0, fp / n_neg]
+    fpr, tpr = roc_curve(y, p)
     return float(np.sum(np.diff(fpr) * (tpr[1:] + tpr[:-1]) / 2))
 
 
@@ -92,6 +98,18 @@ def cross_validate(estimator, X, y, n_splits=5, seed=42, threshold=0.5):
         X_val = X.iloc[val_idx] if hasattr(X, "iloc") else X[val_idx]
         rows.append({"fold": fold, **score(y[val_idx], model.predict_proba(X_val)[:, 1], threshold)})
     return pd.DataFrame(rows)
+
+
+def out_of_fold_predictions(estimator, X, y, n_splits=5, seed=42):
+    y = np.asarray(y)
+    folds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    predictions = np.empty(len(y))
+    for fit_idx, val_idx in folds.split(X, y):
+        model = clone(estimator)
+        model.fit(X.iloc[fit_idx] if hasattr(X, "iloc") else X[fit_idx], y[fit_idx])
+        X_val = X.iloc[val_idx] if hasattr(X, "iloc") else X[val_idx]
+        predictions[val_idx] = model.predict_proba(X_val)[:, 1]
+    return predictions
 
 
 def summarize_folds(folds):

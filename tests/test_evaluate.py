@@ -163,3 +163,45 @@ def test_bootstrap_interval_of_a_perfect_ranking_has_no_width():
     p = np.where(y == 1, 0.9, 0.1)
     table = ev.bootstrap(y, p, n_boot=100)
     assert table.loc["roc_auc"].tolist() == pytest.approx([1.0, 1.0, 1.0])
+
+
+def test_curves_on_the_worked_example():
+    fpr, tpr = ev.roc_curve(Y, P)
+    assert fpr.tolist() == pytest.approx([0, 0, 0, 1 / 3, 1 / 3, 2 / 3, 1])
+    assert tpr.tolist() == pytest.approx([0, 1 / 3, 2 / 3, 2 / 3, 1, 1, 1])
+    recall, precision = ev.pr_curve(Y, P)
+    assert recall.tolist() == pytest.approx([1 / 3, 2 / 3, 2 / 3, 1, 1, 1])
+    assert precision.tolist() == pytest.approx([1, 1, 2 / 3, 3 / 4, 3 / 5, 1 / 2])
+
+
+@pytest.mark.parametrize("decimals", [None, 1])
+def test_curves_match_scikit_learn(decimals):
+    rng = np.random.default_rng(7)
+    y = (rng.random(3000) < 0.1).astype(int)
+    p = np.clip(0.1 + 0.2 * (y - 0.1) + rng.normal(0, 0.1, 3000), 0, 1)
+    if decimals is not None:
+        p = p.round(decimals)
+    fpr, tpr = ev.roc_curve(y, p)
+    sk_fpr, sk_tpr, _ = skm.roc_curve(y, p, drop_intermediate=False)
+    assert fpr == pytest.approx(sk_fpr, abs=1e-12)
+    assert tpr == pytest.approx(sk_tpr, abs=1e-12)
+    recall, precision = ev.pr_curve(y, p)
+    sk_precision, sk_recall, _ = skm.precision_recall_curve(y, p)
+    sk_precision, sk_recall = sk_precision[::-1][1:], sk_recall[::-1][1:]
+    assert recall[: len(sk_recall)] == pytest.approx(sk_recall, abs=1e-12)
+    assert precision[: len(sk_precision)] == pytest.approx(sk_precision, abs=1e-12)
+
+
+def test_out_of_fold_predictions_come_from_a_model_that_did_not_see_the_row(toy_cv):
+    X, y = toy_cv
+    from sklearn.linear_model import LogisticRegression
+
+    predictions = ev.out_of_fold_predictions(LogisticRegression(), X, y, seed=1)
+    assert predictions.shape == y.shape
+    assert ((predictions > 0) & (predictions < 1)).all()
+    folds = ev.cross_validate(LogisticRegression(), X, y, seed=1)
+    from sklearn.model_selection import StratifiedKFold
+
+    split = StratifiedKFold(5, shuffle=True, random_state=1).split(X, y)
+    per_fold = [ev.roc_auc(y[val], predictions[val]) for _, val in split]
+    assert per_fold == pytest.approx(folds["roc_auc"].tolist())

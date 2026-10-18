@@ -115,3 +115,42 @@ def test_real_training_part_has_no_gaps_and_the_expected_columns():
     assert "cat__ORGANIZATION_TYPE_missing" in names
     assert not any(n.endswith("_XNA") for n in names)
     assert "SK_ID_CURR" not in " ".join(names) and "TARGET" not in " ".join(names)
+
+
+def test_winsorizer_caps_values_at_the_training_percentiles_worked_out_by_hand():
+    train = np.arange(1000, dtype=float).reshape(-1, 1)
+    clipper = pp.Winsorizer().fit(train)
+    assert clipper.low_[0] == pytest.approx(0.999)
+    assert clipper.high_[0] == pytest.approx(998.001)
+    out = clipper.transform(np.array([[-50.0], [500.0], [1e6]]))
+    assert out.ravel().tolist() == pytest.approx([0.999, 500.0, 998.001])
+
+
+def test_winsorizer_leaves_binary_columns_and_missing_values_alone():
+    train = np.column_stack([np.array([0.0] * 998 + [1.0, 1.0]), np.arange(1000, dtype=float)])
+    train[5, 1] = np.nan
+    clipper = pp.Winsorizer().fit(train)
+    out = clipper.transform(np.array([[1.0, np.nan], [0.0, 5000.0]]))
+    assert out[0, 0] == 1.0 and out[1, 0] == 0.0
+    assert np.isnan(out[0, 1])
+    assert out[1, 1] == pytest.approx(clipper.high_[1])
+
+
+def test_winsorizer_learns_its_bounds_from_the_training_rows_only():
+    train = np.arange(1000, dtype=float).reshape(-1, 1)
+    clipper = pp.Winsorizer().fit(train)
+    before = (clipper.low_.copy(), clipper.high_.copy())
+    clipper.transform(np.array([[1e9]]))
+    assert clipper.low_ == before[0] and clipper.high_ == before[1]
+
+
+def test_clip_option_caps_a_validation_outlier_in_the_pipeline():
+    rng = np.random.default_rng(0)
+    train = pd.DataFrame({"income": rng.normal(100, 10, 2000), "kind": ["a", "b"] * 1000})
+    validation = pd.DataFrame({"income": [100.0, 1e8], "kind": ["a", "b"]})
+    plain = pp.make_preprocessor().fit(train)
+    clipped = pp.make_preprocessor(clip=True).fit(train)
+    names = list(plain.get_feature_names_out())
+    column = names.index("num__income")
+    assert plain.transform(validation)[1, column] > 1e5
+    assert clipped.transform(validation)[1, column] < 5

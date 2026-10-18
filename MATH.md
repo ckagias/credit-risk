@@ -105,3 +105,74 @@ Scores are 5-fold stratified cross-validation on the 246,008 training applicants
 The curves pool the out-of-fold predictions of the 5 folds. The base-rate model is the diagonal on the ROC curve and the horizontal line at $\pi$ on the precision-recall curve.
 
 The one-feature model lifts PR-AUC to 2.3 times the base rate and lowers log loss from 0.2805 to 0.2577. Its precision falls from about 0.3 near the top of the ranking to 0.08 at full recall. Every later model is compared with these two rows.
+
+## Linear regression and squared loss
+
+Side problem: predict the loan amount `AMT_CREDIT` from the applicant's other application columns. `AMT_GOODS_PRICE` (correlation 0.987 with `AMT_CREDIT`) and `AMT_ANNUITY` are left out because they are near copies of the target. Columns are preprocessed as for the default model, with 117 raw columns becoming about 300 after encoding. Scores are 5-fold cross-validation on the 246,008 training applicants (`src/linear_regression.py`).
+
+### Model and loss
+
+With a design matrix $X$ ($n$ rows, a leading column of ones for the intercept), targets $y$ and weights $w$:
+
+$$
+\hat y = X w, \qquad
+L(w) = \frac{1}{n} \sum_{i=1}^{n} (y_i - \hat y_i)^2 = \frac{1}{n} \lVert y - X w \rVert_2^2
+$$
+
+The gradient is
+
+$$
+\nabla_w L = -\frac{2}{n} X^\top (y - X w)
+$$
+
+Setting it to zero gives the normal equation
+
+$$
+X^\top X\, \hat w = X^\top y \quad\Longrightarrow\quad \hat w = (X^\top X)^{-1} X^\top y
+$$
+
+At the solution $X^\top (y - X\hat w) = 0$: the residuals sum to zero and are uncorrelated with every column. `tests/test_linear_regression.py` checks the closed form against scikit-learn and checks this orthogonality.
+
+Metrics: $\text{RMSE} = \sqrt{L(\hat w)}$, $\text{MAE} = \frac{1}{n}\sum_i \lvert y_i - \hat y_i \rvert$ and
+
+$$
+R^2 = 1 - \frac{\sum_i (y_i - \hat y_i)^2}{\sum_i (y_i - \bar y)^2}
+$$
+
+so $R^2 = 0$ is the score of predicting the mean $\bar y$ for everyone and negative values are worse than that.
+
+### Ridge and lasso
+
+Ridge adds the squared size of the weights (the intercept is not penalized):
+
+$$
+\hat w_{\text{ridge}} = \arg\min_w \; \lVert y - X w \rVert_2^2 + \alpha \lVert w \rVert_2^2
+\quad\Longrightarrow\quad
+\hat w_{\text{ridge}} = (X^\top X + \alpha I)^{-1} X^\top y \quad \text{(centered columns)}
+$$
+
+Lasso adds the absolute size, which has no closed form and sets weights exactly to zero:
+
+$$
+\hat w_{\text{lasso}} = \arg\min_w \; \frac{1}{2n} \lVert y - X w \rVert_2^2 + \alpha \lVert w \rVert_1
+$$
+
+scikit-learn's two $\alpha$ are on different scales, since ridge uses the sum of squares and lasso the mean. The same grid cannot be used for both. The ridge closed form is in `src/linear_regression.py` and matches scikit-learn's `Ridge` to 6 digits in the tests, for $\alpha$ from 0 to $10^4$.
+
+### Results
+
+| Model | RMSE | MAE | $R^2$ |
+|---|---|---|---|
+| Predict the mean for everyone | 402,725 | | 0 |
+| OLS, no clipping | 419,414 (fold std 124,402) | 279,489 | -0.16 |
+| OLS, clipped | 347,500 (3,006) | 266,269 | 0.255 |
+| Ridge, clipped, $\alpha = 100$ | 345,891 (956) | 266,152 | 0.262 |
+| Lasso, clipped, $\alpha = 100$ | 345,856 (998) | 266,094 | 0.263 |
+
+![Ridge and lasso against penalty strength, and out-of-fold residuals](docs/img/regression.png)
+
+- **One applicant breaks the unclipped fit.** A single validation applicant has an income of 117,000,000 (1,066 standard deviations above the mean). The model multiplies it by its income weight and predicts a loan of 119.9 million for an actual 562,491. That one squared error is about 70% of the fold's total, which gives that fold an RMSE of 641,945 against about 363,000 in the other four. MAE hardly moves (272,373 against 280,000 to 282,000) because it grows linearly with the error and not with its square.
+- **Clipping fixes it.** Every numeric column with more than two distinct values is capped at the 0.1th and 99.9th percentile of the training fold. Binary flags are left alone, since a flag set for 2 applicants would otherwise be clipped away. RMSE falls to 347,500 on every fold and $R^2$ rises to 0.255, because the extreme values also distorted the weights for all other applicants.
+- **With clipping the penalty helps slightly.** Ridge and lasso at $\alpha = 100$ improve RMSE by about 1,600 over OLS, more than the fold spread of about 1,000. Lasso at $\alpha = 100$ keeps 181 of 296 columns for the same score. Large penalties hurt: ridge at $\alpha = 10^6$ gives RMSE 384,053.
+- **Residuals.** In 12 bins of predicted amount the mean residual stays within about 46,000 of 0, small against the spread, so the fit is not biased. The spread grows with the predicted amount: the 10th to 90th percentile of the residual is -140,000 to +181,000 around a prediction of 234,000 and -644,000 to +731,000 around 1,031,000. The diagonal stripes are loan amounts that repeat (round figures). 14 of the 10,000 plotted predictions are negative.
+- The profile of an applicant explains only 26% of the variance of the loan amount.

@@ -129,11 +129,42 @@ def regularization_path_plot():
     plt.close(fig)
 
 
+def regression_plot():
+    table = pd.read_csv("results/linear_regression.csv").query("clip")
+    residuals = pd.read_csv("results/regression_residuals.csv")
+    fig, (curve, resid) = plt.subplots(1, 2, figsize=(11, 4.8), facecolor=SURFACE)
+    ols = table[table["model"] == "OLS"].iloc[0]
+    curve.axhline(ols["rmse_mean"], color=REFERENCE, linewidth=1.5, label="OLS (no penalty)")
+    for model, color in (("Ridge", SERIES[0]), ("Lasso", SERIES[1])):
+        part = table[table["model"] == model].sort_values("alpha")
+        curve.plot(part["alpha"], part["rmse_mean"], color=color, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.5, label=model)
+    curve.set_xscale("log")
+    curve.set(xlabel="alpha (larger = stronger penalty)", ylabel="Validation RMSE of AMT_CREDIT (5-fold mean)", title="Penalty strength")
+    curve.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+
+    resid.scatter(residuals["fitted"] / 1000, residuals["residual"] / 1000, s=5, color=MODEL, alpha=0.18, linewidths=0, rasterized=True)
+    bins = pd.qcut(residuals["fitted"], 12, duplicates="drop")
+    grouped = residuals.groupby(bins, observed=True)
+    centre = grouped["fitted"].mean() / 1000
+    resid.plot(centre, grouped["residual"].quantile(0.9) / 1000, color=INK_SECONDARY, linewidth=1.2)
+    resid.plot(centre, grouped["residual"].quantile(0.1) / 1000, color=INK_SECONDARY, linewidth=1.2)
+    resid.plot(centre, grouped["residual"].mean() / 1000, color=SERIES[1], linewidth=2)
+    resid.axhline(0, color=INK, linewidth=0.8)
+    resid.text(0.98, 0.97, "orange: mean residual per bin\ngray: 10th and 90th percentile", transform=resid.transAxes, ha="right", va="top", fontsize=8.5, color=INK_SECONDARY)
+    resid.set(xlabel="Predicted AMT_CREDIT (thousands)", ylabel="Residual: actual minus predicted (thousands)", title="Residuals, out-of-fold, 10,000 applicants")
+    for ax in (curve, resid):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "regression.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
     validation_curve_plot()
     regularization_path_plot()
+    regression_plot()
 
 
 if __name__ == "__main__":

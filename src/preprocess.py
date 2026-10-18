@@ -1,6 +1,7 @@
 import sqlite3
 
 import numpy as np
+from sklearn.base import BaseEstimator, OneToOneFeatureMixin, TransformerMixin
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import make_pipeline
@@ -12,6 +13,8 @@ ID_AND_LABEL = ["SK_ID_CURR", "TARGET"]
 DAYS_EMPLOYED_PLACEHOLDER = 365243
 NO_VALUE_CODES = ["XNA", "XAP"]
 MIN_CATEGORY_SHARE = 0.001
+CLIP_LOWER = 0.001
+CLIP_UPPER = 0.999
 
 
 def clean(X):
@@ -28,8 +31,27 @@ def to_float32(X):
     return X.astype(np.float32)
 
 
-def make_preprocessor(scale=True):
-    numeric_steps = [SimpleImputer(strategy="median", add_indicator=True)]
+class Winsorizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
+    def __init__(self, lower=CLIP_LOWER, upper=CLIP_UPPER):
+        self.lower = lower
+        self.upper = upper
+
+    def fit(self, X, y=None):
+        X = np.asarray(X, dtype=float)
+        self.low_ = np.nanquantile(X, self.lower, axis=0)
+        self.high_ = np.nanquantile(X, self.upper, axis=0)
+        binary = np.array([len(np.unique(column[~np.isnan(column)])) <= 2 for column in X.T])
+        self.low_[binary] = -np.inf
+        self.high_[binary] = np.inf
+        return self
+
+    def transform(self, X):
+        return np.clip(np.asarray(X, dtype=float), self.low_, self.high_)
+
+
+def make_preprocessor(scale=True, clip=False):
+    numeric_steps = [Winsorizer()] if clip else []
+    numeric_steps.append(SimpleImputer(strategy="median", add_indicator=True))
     if scale:
         numeric_steps.append(StandardScaler())
     columns = ColumnTransformer(

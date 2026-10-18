@@ -1,0 +1,11 @@
+model,metric,mean,std,min,max
+base rate for everyone,pr_auc,0.080729,0.000001,0.080728,0.080730
+base rate for everyone,roc_auc,0.500000,0.000000,0.500000,0.500000
+base rate for everyone,log_loss,0.280546,0.000002,0.280545,0.280549
+base rate for everyone,precision,0.000000,0.000000,0.000000,0.000000
+base rate for everyone,recall,0.000000,0.000000,0.000000,0.000000
+"EXT_SOURCE mean, logistic",pr_auc,0.188941,0.002061,0.185327,0.190488
+"EXT_SOURCE mean, logistic",roc_auc,0.716435,0.002527,0.713134,0.719155
+"EXT_SOURCE mean, logistic",log_loss,0.257651,0.000429,0.257170,0.257992
+"EXT_SOURCE mean, logistic",precision,0.172615,0.001027,0.171042,0.173650
+"EXT_SOURCE mean, logistic",recall,0.534189,0.004022,0.527694,0.538771

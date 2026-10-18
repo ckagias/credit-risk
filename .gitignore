@@ -11,3 +11,7 @@ models/
 mlruns/
 *.db
 *.sqlite
+
+# row-level samples of the competition data, kept on disk only
+results/logit_sample.csv
+results/regression_residuals.csv

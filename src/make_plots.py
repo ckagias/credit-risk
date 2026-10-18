@@ -159,12 +159,66 @@ def regression_plot():
     plt.close(fig)
 
 
+def loss_curve_plot():
+    history = pd.read_csv("results/gradient_descent.csv")
+    optimum = history["library_optimum"].iloc[0]
+    shown = history[history["step"] >= 25]
+    fig, ax = plt.subplots(figsize=(7.5, 4.6), facecolor=SURFACE)
+    ax.axhline(optimum, color=REFERENCE, linewidth=1.5, label=f"scikit-learn solution ({optimum:.4f})")
+    ax.plot(shown["step"], shown["objective"], color=MODEL, linewidth=2, label="Gradient descent, log loss plus penalty")
+    last = shown.iloc[-1]
+    ax.plot([last["step"]], [last["objective"]], marker="o", markersize=8, color=MODEL, markeredgecolor=SURFACE, markeredgewidth=2, zorder=5)
+    ax.annotate(f"{last['objective']:.4f} after {int(last['step']):,} steps", (last["step"], last["objective"]), textcoords="offset points", xytext=(-8, 14), ha="right", fontsize=9, color=INK)
+    ax.text(0.02, 0.04, "step 0: 0.6931 (every probability 0.5), off the chart", transform=ax.transAxes, fontsize=8.5, color=INK_SECONDARY)
+    ax.set_xscale("log")
+    ax.set_ylim(0.245, 0.285)
+    ax.set(xlabel="Gradient steps", ylabel="Training objective (mean log loss + penalty)", title="Gradient descent on the logistic loss, C = 0.03")
+    ax.legend(loc="upper right", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "logistic_loss_curve.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def sigmoid_plot():
+    sample = pd.read_csv("results/logit_sample.csv")
+    base_rate = sample["default"].mean()
+    z = np.linspace(-9, 4, 400)
+    fig, (curve, hist) = plt.subplots(2, 1, figsize=(8, 6.4), sharex=True, gridspec_kw={"height_ratios": [1.3, 1]}, facecolor=SURFACE)
+    curve.plot(z, 1 / (1 + np.exp(-z)), color=INK_SECONDARY, linewidth=2)
+    curve.axvline(0, color=GRID, linewidth=1)
+    curve.axhline(0.5, color=GRID, linewidth=1)
+    curve.text(0.15, 0.52, "probability 0.5 (score 0)", fontsize=8.5, color=INK_SECONDARY)
+    curve.set(ylabel="Predicted probability of default", ylim=(0, 1), title="Sigmoid and the out-of-fold scores of 20,000 training applicants")
+    bins = np.linspace(-9, 4, 66)
+    for label, flag, color in (("Did not default", 0, SERIES[0]), ("Defaulted", 1, SERIES[1])):
+        values = sample.loc[sample["default"] == flag, "logit"]
+        hist.hist(values, bins=bins, density=True, color=color, alpha=0.55, label=f"{label} ({len(values):,})", linewidth=0)
+        hist.axvline(values.median(), color=color, linewidth=2)
+    hist.set(xlabel="Score z (log-odds of default)", ylabel="Share of applicants (density)")
+    hist.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    for ax in (curve, hist):
+        style_axis(ax)
+    ticks = [0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.9]
+    top = curve.secondary_xaxis("top", functions=(lambda z: 1 / (1 + np.exp(-z)), lambda p: np.log(p / (1 - p))))
+    top.set_xticks(ticks)
+    top.set_xticklabels([f"{t:g}" for t in ticks])
+    top.tick_params(colors=INK_SECONDARY, labelsize=8.5)
+    top.set_xlabel("Probability at that score", color=INK_SECONDARY, fontsize=9)
+    top.spines["top"].set_color(GRID)
+    fig.tight_layout()
+    fig.savefig(OUT / "logistic_sigmoid.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
     validation_curve_plot()
     regularization_path_plot()
     regression_plot()
+    loss_curve_plot()
+    sigmoid_plot()
 
 
 if __name__ == "__main__":

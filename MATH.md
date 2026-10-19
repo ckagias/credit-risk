@@ -268,3 +268,28 @@ Gradient descent repeats $w \leftarrow w - \eta\,\nabla_w$ and $b \leftarrow b -
 | Logistic regression, all columns, L2, $C = 0.03$ | 0.2249 (0.0045) | 0.7475 (0.0012) | 0.2495 (0.0003) |
 
 The holdout is not used yet.
+
+## Decision tree
+
+A decision tree splits the applicants with a yes/no question on one column, repeats inside each part, and predicts for a leaf the share of defaulters among the training applicants in it. Preprocessing is the same pipeline as for the linear models, without scaling. The settings are scikit-learn's defaults except `max_depth`, with the Gini criterion and no minimum leaf size.
+
+### Depth and overfitting
+
+`max_depth` from 1 to 30 and with no limit, 5-fold stratified cross-validation on the 246,008 training applicants. Mean over folds, validation fold:
+
+| `max_depth` | Leaves | PR-AUC | ROC-AUC | Log loss |
+|---:|---:|---:|---:|---:|
+| 1 | 2 | 0.1076 | 0.5869 | 0.2732 |
+| 3 | 8 | 0.1566 | 0.6826 | 0.2629 |
+| 5 | 32 | 0.1794 | 0.7059 | 0.2590 |
+| 7 | 122 | 0.1866 | 0.7138 | 0.2659 |
+| 10 | 572 | 0.1779 | 0.7044 | 0.3680 |
+| 15 | 2,537 | 0.1507 | 0.6556 | 0.9148 |
+| 30 | 11,870 | 0.1014 | 0.5173 | 3.7271 |
+| none (depth 56 to 63) | 15,993 | 0.0904 | 0.5374 | 5.1014 |
+
+![Training and validation PR-AUC and log loss against tree depth](docs/img/tree_depth.png)
+
+- Validation PR-AUC peaks at depth 7 (0.1866, std 0.0053 over folds) and falls from there, while the training PR-AUC rises to 1.0 for the unlimited tree.
+- Log loss is best at depth 5 (0.2590) and is worse than the 0.2805 of predicting the base rate from depth 8 on (0.2834), because a deep tree gives leaves with a few applicants probabilities close to 0 or 1.
+- The best tree is below the logistic regression (PR-AUC 0.2249) and just below the `EXT_SOURCE` mean baseline (0.1889).

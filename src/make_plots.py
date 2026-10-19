@@ -211,6 +211,40 @@ def sigmoid_plot():
     plt.close(fig)
 
 
+def tree_depth_plot():
+    curve = pd.read_csv("results/tree_depth.csv")
+    stats = curve.groupby(["split", curve["max_depth"].fillna(0)])[["pr_auc", "log_loss"]].agg(["mean", "std"])
+    depths = sorted(curve["max_depth"].fillna(0).unique(), key=lambda d: np.inf if d == 0 else d)
+    positions = np.arange(len(depths))
+    labels = [f"{int(d)}" if d else "none" for d in depths]
+    floor = pd.read_csv("results/baselines.csv").query("metric == 'pr_auc' and model.str.startswith('EXT_SOURCE')")["mean"].iloc[0]
+    fig, (pr, loss) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    for ax, metric in ((pr, "pr_auc"), (loss, "log_loss")):
+        for split, color, label in (("train", REFERENCE, "Training folds"), ("validation", MODEL, "Validation fold")):
+            part = stats.loc[split].loc[depths, metric]
+            ax.plot(positions, part["mean"], color=color, linewidth=2 if split == "validation" else 1.5, label=label)
+            if split == "validation":
+                ax.fill_between(positions, part["mean"] - part["std"], part["mean"] + part["std"], color=color, alpha=0.15, linewidth=0)
+        ax.set_xticks(positions)
+        ax.set_xticklabels(labels)
+        ax.set_xlabel("max_depth (none = grown until every leaf is pure)")
+        style_axis(ax)
+    validation = stats.loc["validation"].loc[depths]
+    best = validation["pr_auc"]["mean"].to_numpy().argmax()
+    pr.plot([positions[best]], [validation["pr_auc"]["mean"].iloc[best]], marker="o", markersize=8, color=MODEL, markeredgecolor=SURFACE, markeredgewidth=2, zorder=5)
+    pr.annotate(f"best: depth {labels[best]}\nPR-AUC {validation['pr_auc']['mean'].iloc[best]:.4f}", (positions[best], validation["pr_auc"]["mean"].iloc[best]), textcoords="offset points", xytext=(-8, -34), ha="right", fontsize=9, color=INK)
+    pr.axhline(floor, color=REFERENCE, linewidth=1, alpha=0.6)
+    pr.text(0.015, floor + 0.012, "EXT_SOURCE baseline", transform=pr.get_yaxis_transform(), fontsize=8.5, color=INK_SECONDARY)
+    pr.set(ylabel="PR-AUC (5-fold mean, band = 1 std)", ylim=(0, 1.03), title="PR-AUC against tree depth")
+    pr.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    loss.set_yscale("log")
+    loss.text(0.98, 0.04, "none: training log loss is 0, off the chart", transform=loss.transAxes, ha="right", fontsize=8.5, color=INK_SECONDARY)
+    loss.set(ylabel="Log loss (log scale)", title="Log loss against tree depth")
+    fig.tight_layout()
+    fig.savefig(OUT / "tree_depth.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -219,6 +253,7 @@ def main():
     regression_plot()
     loss_curve_plot()
     sigmoid_plot()
+    tree_depth_plot()
 
 
 if __name__ == "__main__":

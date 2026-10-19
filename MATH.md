@@ -293,3 +293,43 @@ A decision tree splits the applicants with a yes/no question on one column, repe
 - Validation PR-AUC peaks at depth 7 (0.1866, std 0.0053 over folds) and falls from there, while the training PR-AUC rises to 1.0 for the unlimited tree.
 - Log loss is best at depth 5 (0.2590) and is worse than the 0.2805 of predicting the base rate from depth 8 on (0.2834), because a deep tree gives leaves with a few applicants probabilities close to 0 or 1.
 - The best tree is below the logistic regression (PR-AUC 0.2249) and just below the `EXT_SOURCE` mean baseline (0.1889).
+
+## Random forest
+
+A random forest fits many decision trees, each on a bootstrap sample of the training rows and with only a random subset of the columns tried at each split, and predicts the mean of the trees' leaf probabilities. All forests here use the Gini criterion and the same pipeline as above on 300 columns. Settings were swept one at a time on the same 5 folds, validation fold, mean (std over folds):
+
+The three sweeps ran in this order and each used the best setting of the one before: leaf size first (100 trees, 17 columns per split), then columns per split (100 trees, `min_samples_leaf` = 30), then the number of trees (`min_samples_leaf` = 30, 30 columns).
+
+| `min_samples_leaf` | Train PR-AUC | Validation PR-AUC | Validation log loss |
+|---:|---:|---:|---:|
+| 1 | 1.0000 | 0.1967 (0.0022) | 0.2711 (0.0024) |
+| 10 | 0.7741 | 0.2193 (0.0033) | 0.2538 (0.0001) |
+| 30 | 0.4469 | 0.2211 (0.0024) | 0.2542 (0.0004) |
+| 100 | 0.2903 | 0.2172 (0.0021) | 0.2558 (0.0003) |
+| 1000 | 0.2163 | 0.2049 (0.0019) | 0.2614 (0.0003) |
+
+| `max_features` | Validation PR-AUC | Validation ROC-AUC | Validation log loss |
+|---:|---:|---:|---:|
+| 1 | 0.1582 (0.0046) | 0.6483 (0.0054) | 0.2754 (0.0003) |
+| 10 | 0.2135 (0.0028) | 0.7326 (0.0012) | 0.2576 (0.0003) |
+| 17 (square root of 300) | 0.2211 (0.0024) | 0.7400 (0.0016) | 0.2542 (0.0004) |
+| 30 | 0.2254 (0.0024) | 0.7432 (0.0010) | 0.2518 (0.0002) |
+| 100 | 0.2244 (0.0034) | 0.7411 (0.0016) | 0.2510 (0.0004) |
+| 300 (every column, plain bagging) | 0.2208 (0.0042) | 0.7359 (0.0024) | 0.2523 (0.0007) |
+
+| Trees | Validation PR-AUC | Validation ROC-AUC | Validation log loss |
+|---:|---:|---:|---:|
+| 1 | 0.1368 (0.0049) | 0.6316 (0.0040) | 0.7909 (0.0137) |
+| 10 | 0.2052 (0.0002) | 0.7206 (0.0028) | 0.2576 (0.0010) |
+| 50 | 0.2222 (0.0030) | 0.7402 (0.0015) | 0.2523 (0.0003) |
+| 100 | 0.2254 (0.0024) | 0.7432 (0.0010) | 0.2518 (0.0002) |
+| 200 | 0.2266 (0.0026) | 0.7449 (0.0010) | 0.2515 (0.0003) |
+| 500 | 0.2274 (0.0026) | 0.7462 (0.0012) | 0.2513 (0.0003) |
+
+![Validation PR-AUC against leaf size, columns per split and number of trees](docs/img/forest.png)
+
+- With one tree the forest scores 0.1368. Averaging 500 of the same trees gives 0.2274, and the validation score did not fall at any tree count up to 500. It is flat from about 200 trees (0.2266 against 0.2274).
+- The trees need a minimum leaf size. With `min_samples_leaf` = 1 the training PR-AUC is 1.0 and the validation PR-AUC 0.1967. Averaging many such trees helps, but not enough to make up for the leaves with one applicant each.
+- Trying one column per split is the worst setting (0.1582). The score is flat from 30 to 100 columns and drops slightly for all 300 (0.2208), where every tree sees the same strongest columns and the trees are more alike.
+- The forest with 500 trees, 30 columns per split and `min_samples_leaf` = 30 has PR-AUC 0.2274 (0.0026), ROC-AUC 0.7462 and log loss 0.2513. The logistic regression has 0.2249 (0.0045), 0.7475 and 0.2495. The PR-AUC difference is smaller than the fold-to-fold std, and the logistic regression is ahead on ROC-AUC and log loss.
+- The three settings were chosen on the same folds that are reported, so these scores are slightly optimistic. The holdout is not used yet.

@@ -245,6 +245,34 @@ def tree_depth_plot():
     plt.close(fig)
 
 
+def forest_plot():
+    results = pd.read_csv("results/forest.csv")
+    logistic = pd.read_csv("results/logistic.csv").query("metric == 'pr_auc'")["mean"].iloc[0]
+    panels = (
+        ("min_samples_leaf", "min_samples_leaf (larger = smaller trees)", "Leaf size, 100 trees"),
+        ("max_features", "max_features (columns tried per split, of 300)", "Feature subsampling, 100 trees"),
+        ("trees", "Number of trees", "Number of trees"),
+    )
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.6), sharey=True, facecolor=SURFACE)
+    for ax, (experiment, xlabel, title) in zip(axes, panels):
+        part = results[(results["experiment"] == experiment) & (results["split"] == "validation")]
+        stats = part.groupby("setting")["pr_auc"].agg(["mean", "std"])
+        ax.axhline(logistic, color=REFERENCE, linewidth=1, alpha=0.7)
+        ax.plot(stats.index, stats["mean"], color=MODEL, linewidth=2)
+        ax.fill_between(stats.index, stats["mean"] - stats["std"], stats["mean"] + stats["std"], color=MODEL, alpha=0.15, linewidth=0)
+        best = stats["mean"].idxmax()
+        ax.plot([best], [stats.loc[best, "mean"]], marker="o", markersize=8, color=MODEL, markeredgecolor=SURFACE, markeredgewidth=2, zorder=5)
+        ax.annotate(f"{best:g}: {stats.loc[best, 'mean']:.4f}", (best, stats.loc[best, "mean"]), textcoords="offset points", xytext=(0, -26), ha="center", fontsize=9, color=INK)
+        ax.set_xscale("log")
+        ax.set(xlabel=xlabel, title=title, ylim=(0.12, 0.24))
+        style_axis(ax)
+    axes[0].text(0.02, logistic + 0.0025, "logistic regression", transform=axes[0].get_yaxis_transform(), fontsize=8.5, color=INK_SECONDARY)
+    axes[0].set_ylabel("Validation PR-AUC (5-fold mean, band = 1 std)")
+    fig.tight_layout()
+    fig.savefig(OUT / "forest.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -254,6 +282,7 @@ def main():
     loss_curve_plot()
     sigmoid_plot()
     tree_depth_plot()
+    forest_plot()
 
 
 if __name__ == "__main__":

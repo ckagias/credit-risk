@@ -32,8 +32,8 @@ def make_forest(n_estimators=N_TREES, max_features=DEFAULT_FEATURES, min_samples
     )
 
 
-def prepare_folds(X, y, n_splits=5):
-    folds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=SEED).split(X, y)
+def prepare_folds(X, y, n_splits=5, seed=SEED):
+    folds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed).split(X, y)
     prepared = []
     for fold, (fit_idx, val_idx) in enumerate(folds):
         pre = make_preprocessor(scale=False).fit(X.iloc[fit_idx])

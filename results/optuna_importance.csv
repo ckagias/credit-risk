@@ -1,0 +1,7 @@
+parameter,importance
+reg_lambda,0.278488
+reg_alpha,0.257129
+colsample_bytree,0.194161
+subsample,0.188018
+num_leaves,0.041464
+min_child_samples,0.040740

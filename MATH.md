@@ -371,3 +371,39 @@ XGBoost with its defaults (depth-wise trees of at most 6 levels, so at most 64 l
 - The two libraries give the same scores. Fold by fold, the LightGBM minus XGBoost difference in PR-AUC at learning rate 0.02 has mean 0.0000 and std 0.0012, and at 0.05 it is -0.0005 (std 0.0015).
 - XGBoost needs more rounds (724 against 581 at 0.02) and 2.1 to 2.7 times the fit time (LightGBM's time is 0.37 to 0.47 of XGBoost's at each learning rate), on 16 cores.
 - Both libraries gain from a smaller learning rate in the same way, from 0.2281 (XGBoost) and 0.2269 (LightGBM) at 0.3 to 0.2401 for both at 0.02.
+
+### Tuning with Optuna
+
+LightGBM at learning rate 0.05 was tuned with Optuna (TPE sampler, seed 42) for 60 trials. Each trial is scored as the mean validation PR-AUC over the same 5 folds, with the rounds chosen by early stopping as above, and a median pruner stops a trial after a fold if its running mean is below the median of earlier trials (never in the first 10 trials). The first trial is the default setting. Every trial is stored with its settings, scores, best round and time in `results/optuna_trials.csv`.
+
+| Setting | Range searched | Default (trial 0) | Best trial (57) |
+|---|---|---:|---:|
+| `num_leaves` | 8 to 256, log | 31 | 9 |
+| `min_child_samples` | 10 to 300, log | 20 | 206 |
+| `subsample` (row fraction, every round) | 0.5 to 1 | 1 | 0.85 |
+| `colsample_bytree` | 0.3 to 1 | 1 | 0.56 |
+| `reg_alpha` (L1 on leaf values) | 0.001 to 10, log | 0.001 | 0.024 |
+| `reg_lambda` (L2 on leaf values) | 0.001 to 10, log | 0.001 | 7.5 |
+
+![Optuna history of 60 trials and the importance of each setting](docs/img/optuna_history.png)
+
+- 41 trials completed and 19 were pruned. The study took 24 minutes. The best trial reached a mean PR-AUC of 0.2432, against 0.2385 for the default setting, and 39 of the 41 completed trials beat the default.
+- The scores of the best trials are very close: the five best are between 0.2431 and 0.2432, with settings that differ a lot (`num_leaves` from 8 to 27). The surface is flat near the top.
+- The best settings are simpler trees (9 leaves) with strong L2 and L1 penalties and sampling of rows and columns. `reg_lambda` and `reg_alpha` explain the most of the variance between trials (0.28 and 0.26 by fANOVA), the sampling fractions 0.19 each, `num_leaves` and `min_child_samples` 0.04 each.
+- Several of the best settings sit at the edge of the range searched: `num_leaves` 8 to 9 (lower limit 8) and `reg_lambda` up to 9.7 (upper limit 10). A wider range might find slightly more.
+
+The best trial's score is the best of 60, so it is checked on a new split: the default and the tuned settings were scored on 5 folds drawn with a different seed (7), at learning rate 0.05 and at 0.02. Mean (std over folds), and the mean of the fold-by-fold difference (tuned minus default):
+
+| Learning rate | Settings | Best round | PR-AUC | ROC-AUC | Log loss |
+|---:|---|---:|---:|---:|---:|
+| 0.05 | default | 226 (51) | 0.2388 (0.0030) | 0.7554 (0.0033) | 0.2471 (0.0005) |
+| 0.05 | tuned | 797 (214) | 0.2431 (0.0030) | 0.7587 (0.0037) | 0.2461 (0.0007) |
+| 0.05 | difference | | +0.0042 (0.0011) | +0.0033 (0.0014) | -0.0010 (0.0004) |
+| 0.02 | default | 643 (151) | 0.2401 (0.0033) | 0.7560 (0.0033) | 0.2469 (0.0006) |
+| 0.02 | tuned | 1,937 (551) | 0.2432 (0.0038) | 0.7591 (0.0031) | 0.2460 (0.0006) |
+| 0.02 | difference | | +0.0030 (0.0015) | +0.0031 (0.0010) | -0.0009 (0.0003) |
+
+- On the new folds the tuned settings score 0.2431, the same as on the tuning folds (0.2432), so the choice of settings did not overfit those folds.
+- The tuned model beats the default in every one of the 10 fold comparisons on all three metrics (smallest PR-AUC gain 0.0012). The gain is small compared with the spread over folds, but it is paired, and it is 0.003 to 0.004 PR-AUC.
+- The tuned model needs 3 to 4 times as many rounds, because trees of 9 leaves with strong penalties take smaller steps.
+- The holdout is not used yet.

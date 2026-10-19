@@ -302,6 +302,32 @@ def boosting_plot():
     plt.close(fig)
 
 
+def tuning_plot():
+    trials = pd.read_csv("results/optuna_trials.csv")
+    importance = pd.read_csv("results/optuna_importance.csv").sort_values("importance")
+    done = trials[trials["state"] == "COMPLETE"]
+    pruned = trials[trials["state"] == "PRUNED"]
+    fig, (history, bars) = plt.subplots(1, 2, figsize=(11, 4.6), gridspec_kw={"width_ratios": [1.5, 1]}, facecolor=SURFACE)
+    history.scatter(done["number"], done["value"], s=28, color=MODEL, edgecolors=SURFACE, linewidths=0.8, zorder=3, label=f"Completed trial ({len(done)})")
+    history.scatter(pruned["number"], [0.2318] * len(pruned), marker="|", s=90, color=REFERENCE, zorder=3, label=f"Pruned early ({len(pruned)}, drawn at the bottom)")
+    history.plot(done["number"], done["value"].cummax(), color=SERIES[1], linewidth=2, drawstyle="steps-post", label="Best so far")
+    first = trials.loc[trials["number"] == 0, "value"].iloc[0]
+    history.axhline(first, color=REFERENCE, linewidth=1, alpha=0.7)
+    history.text(0.99, first - 0.0006, f"default settings, trial 0: {first:.4f}", transform=history.get_yaxis_transform(), ha="right", fontsize=8.5, color=INK_SECONDARY)
+    history.set(xlabel="Trial", ylabel="Mean validation PR-AUC (5 folds)", title="Optuna history, LightGBM at learning rate 0.05", ylim=(0.2305, 0.2445))
+    history.legend(loc="lower right", bbox_to_anchor=(1.0, 0.15), frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    bars.barh(importance["parameter"], importance["importance"], color=MODEL, height=0.6)
+    for y, value in enumerate(importance["importance"]):
+        bars.text(value + 0.004, y, f"{value:.2f}", va="center", fontsize=9, color=INK_SECONDARY)
+    bars.set(xlabel="Share of the variance in PR-AUC explained (fANOVA)", title="Which settings mattered", xlim=(0, 0.33))
+    for ax in (history, bars):
+        style_axis(ax)
+    bars.grid(False, axis="y")
+    fig.tight_layout()
+    fig.savefig(OUT / "optuna_history.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -313,6 +339,7 @@ def main():
     tree_depth_plot()
     forest_plot()
     boosting_plot()
+    tuning_plot()
 
 
 if __name__ == "__main__":

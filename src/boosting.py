@@ -35,9 +35,9 @@ def stopping_split(Z, y):
     return Z_fit, Z_stop, y_fit, y_stop
 
 
-def fit_with_early_stopping(Z, y, learning_rate, patience=PATIENCE, max_rounds=MAX_ROUNDS):
+def fit_with_early_stopping(Z, y, learning_rate, patience=PATIENCE, max_rounds=MAX_ROUNDS, **params):
     Z_fit, Z_stop, y_fit, y_stop = stopping_split(Z, y)
-    booster = make_booster(learning_rate, max_rounds)
+    booster = make_booster(learning_rate, max_rounds, **params)
     booster.fit(
         Z_fit,
         y_fit,

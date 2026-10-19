@@ -356,3 +356,18 @@ Fit time is the early-stopped fit on 16 cores, including the 100 rounds after th
 - At learning rate 0.3 or 0.1 the validation PR-AUC does turn down after the best round (0.2262 at 20 rounds, 0.2198 at 50 for 0.3). The best round also varies between folds, from 18 to 27 at 0.3 and from 424 to 690 at 0.02.
 - LightGBM at 0.02 has PR-AUC 0.2401 (0.0052), against 0.2274 (0.0026) for the forest and 0.2249 (0.0045) for the logistic regression, and ROC-AUC 0.7563 against 0.7462 and 0.7475. The settings other than the learning rate are untuned.
 - The score-by-round curves show the mean of the 5 folds at a grid of round numbers, and only the rounds that every fold reached, up to 3 times the fold's best round. The dots are the exact early-stopped results, so they can sit slightly above the curve.
+
+### XGBoost
+
+XGBoost with its defaults (depth-wise trees of at most 6 levels, so at most 64 leaves, histogram split search, no sampling) and the same protocol: same folds, same 10% early-stopping part, log loss with a patience of 100 rounds, same four learning rates. Validation fold, mean (std over folds), with LightGBM from above:
+
+| Learning rate | Library | Best round | Fit time | PR-AUC | ROC-AUC | Log loss |
+|---:|---|---:|---:|---:|---:|---:|
+| 0.10 | LightGBM | 85 (18) | 2.3 s | 0.2366 (0.0063) | 0.7537 (0.0017) | 0.2475 (0.0006) |
+| 0.10 | XGBoost | 146 (28) | 5.8 s | 0.2376 (0.0048) | 0.7549 (0.0005) | 0.2472 (0.0004) |
+| 0.02 | LightGBM | 581 (108) | 6.9 s | 0.2401 (0.0052) | 0.7563 (0.0017) | 0.2468 (0.0005) |
+| 0.02 | XGBoost | 724 (78) | 18.4 s | 0.2401 (0.0050) | 0.7563 (0.0014) | 0.2467 (0.0004) |
+
+- The two libraries give the same scores. Fold by fold, the LightGBM minus XGBoost difference in PR-AUC at learning rate 0.02 has mean 0.0000 and std 0.0012, and at 0.05 it is -0.0005 (std 0.0015).
+- XGBoost needs more rounds (724 against 581 at 0.02) and 2.1 to 2.7 times the fit time (LightGBM's time is 0.37 to 0.47 of XGBoost's at each learning rate), on 16 cores.
+- Both libraries gain from a smaller learning rate in the same way, from 0.2281 (XGBoost) and 0.2269 (LightGBM) at 0.3 to 0.2401 for both at 0.02.

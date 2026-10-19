@@ -273,6 +273,40 @@ The holdout is not used yet.
 
 A decision tree splits the applicants with a yes/no question on one column, repeats inside each part, and predicts for a leaf the share of defaulters among the training applicants in it. Preprocessing is the same pipeline as for the linear models, without scaling. The settings are scikit-learn's defaults except `max_depth`, with the Gini criterion and no minimum leaf size.
 
+### Splitting: Gini impurity and entropy
+
+For a node with $n$ applicants of whom a share $p$ defaulted, the two usual impurity measures are
+
+$$
+G(p) = 2p(1-p) = 1 - p^2 - (1-p)^2, \qquad
+H(p) = -p \log_2 p - (1-p)\log_2 (1-p)
+$$
+
+Both are 0 for a pure node and largest at $p = \tfrac12$ ($G = 0.5$, $H = 1$ bit). $G(p)$ is the probability that two applicants drawn from the node at random have different outcomes. A split sends $n_L$ applicants left and $n_R$ right, with default shares $p_L$ and $p_R$, and its impurity decrease is
+
+$$
+\Delta = I(p) - \frac{n_L}{n}\, I(p_L) - \frac{n_R}{n}\, I(p_R), \qquad I \in \{G, H\}
+$$
+
+Because $I$ is concave, $\Delta \ge 0$ for every split, and $\Delta = 0$ only when both children have the parent's share $p$. The tree tries every column and every cut point in the node, takes the split with the largest $\Delta$, and repeats in each child until `max_depth` or the minimum leaf size stops it. A leaf predicts $\hat p = $ defaults in the leaf divided by applicants in the leaf. `src/tree_math.py` computes $\Delta$ by hand and checks it against the impurities scikit-learn stores in its nodes.
+
+The root split on the 246,008 training applicants (19,860 defaults, $p = 0.0807$), one tree of depth 1 per criterion:
+
+| Criterion | Split | Left: applicants (defaults) | Right: applicants (defaults) | Parent impurity | Weighted children | $\Delta$ |
+|---|---|---:|---:|---:|---:|---:|
+| Gini | `EXT_SOURCE_3` <= 0.3147 | 35,915 (6,070) | 210,093 (13,790) | 0.1484 | 0.1458 | 0.0027 |
+| Entropy | `EXT_SOURCE_2` <= 0.4146 | 66,867 (9,289) | 179,141 (10,571) | 0.4047 | 0.3936 | 0.0111 |
+
+For the Gini split, $G(0.0807) = 0.1484$, $G(0.169) = 0.2809$ and $G(0.0656) = 0.1227$, so $\Delta = 0.1484 - \tfrac{35{,}915}{246{,}008}\,0.2809 - \tfrac{210{,}093}{246{,}008}\,0.1227 = 0.0027$.
+
+![Gini impurity and entropy against the share of defaults, with the root node and its two children](docs/img/impurity.png)
+
+![The first three levels of the tree](docs/img/tree_diagram.png)
+
+- The two criteria pick different columns at the root, but each split is almost as good under the other measure: the Gini split has an entropy decrease of 0.0106 against 0.0111 for the entropy split, and the entropy split has a Gini decrease of 0.0025 against 0.0027.
+- The best root split lowers the Gini impurity by 0.0027, 1.8% of 0.1484. Defaults are rare and a single column separates them only partly. The three levels together use only `EXT_SOURCE_2` and `EXT_SOURCE_3`.
+- The eight leaves of the depth-3 tree run from 3.2% defaults (74,953 applicants) to 34.5% (2,969 applicants), a factor of 10.8, against the base rate of 8.1%.
+
 ### Depth and overfitting
 
 `max_depth` from 1 to 30 and with no limit, 5-fold stratified cross-validation on the 246,008 training applicants. Mean over folds, validation fold:
@@ -334,9 +368,80 @@ The three sweeps ran in this order and each used the best setting of the one bef
 - The forest with 500 trees, 30 columns per split and `min_samples_leaf` = 30 has PR-AUC 0.2274 (0.0026), ROC-AUC 0.7462 and log loss 0.2513. The logistic regression has 0.2249 (0.0045), 0.7475 and 0.2495. The PR-AUC difference is smaller than the fold-to-fold std, and the logistic regression is ahead on ROC-AUC and log loss.
 - The three settings were chosen on the same folds that are reported, so these scores are slightly optimistic. The holdout is not used yet.
 
+### Variance reduction of bagging
+
+Let $T_1, \dots, T_B$ be the predictions of $B$ trees for one applicant, each with variance $\sigma^2$ and pairwise correlation $\rho$. The forest predicts their mean, with variance
+
+$$
+\mathrm{Var}\left(\frac{1}{B}\sum_{b=1}^{B} T_b\right) = \rho\,\sigma^2 + \frac{1-\rho}{B}\,\sigma^2
+$$
+
+More trees remove the second term but not the first, so $\rho\,\sigma^2$ is the floor. Bootstrap sampling and random columns per split make the trees different, which lowers $\rho$. The correlation is the one between trees across training sets, so it is measured on 8 training sets, each a random 100,000-row subsample of the 196,806 rows of fold 0, with 30 trees per set (`min_samples_leaf` = 30) and the variance taken over the 49,202 validation applicants of that fold. The variance of the mean of groups of $b$ trees is regressed on $1/b$, which gives $\rho\,\sigma^2$ as the intercept and $(1-\rho)\,\sigma^2$ as the slope (`src/forest_math.py`).
+
+| Columns per split | Variance of one tree, $\sigma^2$ | Correlation $\rho$ | Floor $\rho\,\sigma^2$ | Variance of 30 trees | Ratio |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 0.00558 | 0.004 | 0.00002 | 0.00021 | 1 / 26.6 |
+| 30 | 0.00823 | 0.004 | 0.00004 | 0.00032 | 1 / 26.1 |
+| 300 (plain bagging) | 0.01082 | 0.019 | 0.00021 | 0.00057 | 1 / 18.8 |
+
+![Variance of the predicted probability against the number of trees averaged](docs/img/bagging_variance.png)
+
+- The measured variance of the average follows the formula, within 2.2% at every point of the 3 settings. A single tree's prediction has a standard deviation of 0.075 to 0.104 across forests, as large as the base rate (0.081), and the mean of 30 trees 0.014 to 0.024.
+- Using all 300 columns at every split gives the largest variance per tree and the highest correlation (0.019 against 0.004). Fewer columns make the trees more different from each other and each tree's predictions more stable.
+- Less variance is not the same as a better forest. 10 columns per split has the lowest variance but a validation PR-AUC of 0.2135 against 0.2254 for 30, because trees that see few columns are weaker on average. The best setting balances the two.
+- The 8 training sets overlap, since each is half of the same 196,806 rows, so they differ less than independent samples would. The $\rho$ values are lower bounds. What the measurement does show is that the trees of one forest are almost interchangeable draws and their average loses nearly all of the single-tree variance.
+
 ## Gradient boosting with LightGBM
 
 LightGBM fits trees one after another. Each new tree is fitted to the gradient of the log loss at the current predictions, and its output times the learning rate is added to the running score. Settings are LightGBM's defaults (31 leaves per tree, at least 20 applicants per leaf, no row or column sampling, no penalty) except the learning rate, and the pipeline is the same as for the forest. The number of rounds is chosen by early stopping: 10% of each training fold is held out, training stops when its log loss has not improved for 100 rounds, and the model keeps the rounds up to the best one. The validation fold is only used to score the result.
+
+### The update and the gradient it fits
+
+The model is a score $F(x)$ on the log-odds scale, with $\hat p = \sigma(F)$, as in logistic regression. The log loss of one applicant as a function of the score is $\ell(y, F) = -yF + \log(1 + e^{F})$, with
+
+$$
+\frac{\partial \ell}{\partial F} = \sigma(F) - y = \hat p - y,
+\qquad
+\frac{\partial^2 \ell}{\partial F^2} = \hat p\,(1 - \hat p)
+$$
+
+Boosting starts from the base rate, $F_0 = \log \frac{\pi}{1-\pi}$, which is $-2.4325$ for $\pi = 0.0807$. Round $m$ then does three things:
+
+1. Compute for every training applicant the negative gradient, called the residual: $r_i = y_i - \hat p_i = -\,\partial \ell / \partial F\,\big|_{F_{m-1}(x_i)}$.
+2. Fit a regression tree $h_m$ with leaves $R_1, \dots, R_J$ to the residuals $r_i$ by squared error, so each leaf collects applicants whose current probabilities are wrong in the same direction.
+3. Set each leaf to a Newton step on the log loss of its applicants, the sum of the gradients divided by the sum of the second derivatives, and add the tree to the score with a learning rate $\eta$:
+
+$$
+\gamma_j = \frac{\sum_{i \in R_j} r_i}{\sum_{i \in R_j} \hat p_i (1 - \hat p_i) + \lambda},
+\qquad
+F_m(x) = F_{m-1}(x) + \eta\, h_m(x), \quad h_m(x) = \gamma_{j(x)}
+$$
+
+Here $\lambda$ is the L2 penalty on the leaf values (`reg_lambda`). For the loss of a leaf under a constant shift $\gamma$, $\sum_i \ell \approx \gamma \sum_i (\hat p_i - y_i) + \tfrac12 \gamma^2 \sum_i \hat p_i (1 - \hat p_i)$ is smallest at the $\gamma_j$ above. Each round is a gradient step on the scores of the training applicants, as $w \leftarrow w - \eta \nabla_w$ is for the weights of the logistic regression, and the tree makes that step apply to new applicants by giving all applicants in a leaf the same step.
+
+`src/boosting_math.py` does this in about 40 lines with scikit-learn's `DecisionTreeRegressor` for step 2 (31 leaves, at least 20 applicants per leaf, $\eta = 0.1$, $\lambda = 0$) on fold 0 of the 5-fold split, with the same preprocessing as above. On small test problems its scores equal those of scikit-learn's `GradientBoostingClassifier` to within $4 \times 10^{-15}$ after 30 rounds (`tests/test_boosting_math.py`; that class has to be given `max_depth=None`, because its default depth limit of 3 overrides the leaf limit). On the real data, round 1 looks like this:
+
+- Every applicant has $\hat p = 0.0807$, so the residual is $+0.9193$ for a defaulter and $-0.0807$ for everyone else.
+- The first tree has 31 leaves with values $\gamma_j$ from $-0.736$ to $+5.819$. The largest is a leaf of 119 applicants of whom 51.3% defaulted. Multiplied by $\eta = 0.1$, the scores move by $-0.074$ to $+0.582$, which puts the probabilities between 0.0754 and 0.1358.
+
+Against LightGBM with the same settings (31 leaves, 20 applicants per leaf, no penalty, no sampling), same fold, fixed 150 rounds without early stopping:
+
+| Round | Training log loss, hand-written / LightGBM | Validation log loss, hand-written / LightGBM | Validation PR-AUC, hand-written / LightGBM |
+|---:|---|---|---|
+| 1 | 0.2749 / 0.2750 | 0.2753 / 0.2754 | 0.1808 / 0.1807 |
+| 10 | 0.2563 / 0.2561 | 0.2589 / 0.2582 | 0.2056 / 0.2096 |
+| 50 | 0.2409 / 0.2398 | 0.2495 / 0.2485 | 0.2284 / 0.2283 |
+| 100 | 0.2337 / 0.2313 | 0.2486 / 0.2477 | 0.2312 / 0.2306 |
+| 150 | 0.2279 / 0.2244 | 0.2487 / 0.2478 | 0.2309 / 0.2298 |
+
+![Hand-written boosting against LightGBM: log loss and validation PR-AUC by round](docs/img/boosting_demo.png)
+
+- The two follow each other closely. The validation log loss of the hand-written loop is higher by 0.0009 on average and by at most 0.0013, and the validation PR-AUC peaks at 0.2315 (round 85) against 0.2310 (round 75) for LightGBM.
+- LightGBM fits the training data a little faster (0.2244 against 0.2279 at round 150). It searches 255 bins per column instead of every cut point, and it picks splits with the gradient and the second derivative, where the loop fits the residuals by squared error.
+- Both have the shape of the score-by-round chart below: the training loss keeps falling, and the validation loss stops improving at about round 80 and then stays flat.
+- The loop took 554 s for 150 rounds, against 2.3 s for a LightGBM early-stopped fit at this learning rate (table below), which is the reason the libraries are used for the model results.
+
+### Learning rate and rounds
 
 5-fold stratified cross-validation, validation fold, mean (std over folds):
 

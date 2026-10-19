@@ -328,6 +328,123 @@ def tuning_plot():
     plt.close(fig)
 
 
+def tree_diagram_plot():
+    nodes = pd.read_csv("results/tree_depth3_nodes.csv").set_index("node")
+    position = {}
+    leaves = [n for n in nodes.index if nodes.loc[n, "left"] == -1]
+
+    def place(node, depth):
+        if nodes.loc[node, "left"] == -1:
+            position[node] = (leaves.index(node), -depth)
+        else:
+            left, right = place(nodes.loc[node, "left"], depth + 1), place(nodes.loc[node, "right"], depth + 1)
+            position[node] = ((left + right) / 2, -depth)
+        return position[node][0]
+
+    place(0, 0)
+    top = nodes["default_rate"].max()
+    fig, ax = plt.subplots(figsize=(13, 5.6), facecolor=SURFACE)
+    for node, row in nodes.iterrows():
+        if row["left"] == -1:
+            continue
+        for child, label in ((int(row["left"]), "yes"), (int(row["right"]), "no")):
+            (x0, y0), (x1, y1) = position[node], position[child]
+            ax.plot([x0, x1], [y0 - 0.17, y1 + 0.17], color=INK_SECONDARY, linewidth=1, zorder=1)
+            ax.text((x0 + x1) / 2 + (-0.06 if label == "yes" else 0.06), (y0 + y1) / 2, label, fontsize=8, color=INK_SECONDARY, ha="right" if label == "yes" else "left", va="center")
+    for node, row in nodes.iterrows():
+        x, y = position[node]
+        shade = 0.12 + 0.88 * row["default_rate"] / top
+        face = tuple(1 - shade * (1 - c) for c in matplotlib.colors.to_rgb(SERIES[1]))
+        rate = f"{100 * row['default_rate']:.1f}% default"
+        if row["left"] == -1:
+            text = f"{int(row['samples']):,}\n{rate}"
+        else:
+            text = f"{row['feature']} <= {row['threshold']:.3f}\n{int(row['samples']):,} applicants\n{rate}"
+        ax.text(x, y, text, ha="center", va="center", fontsize=8.5, color=INK, zorder=3, bbox=dict(boxstyle="round,pad=0.35", facecolor=face, edgecolor=GRID, linewidth=1))
+    ax.set_xlim(-0.6, len(leaves) - 0.4)
+    ax.set_ylim(-3.45, 0.4)
+    ax.axis("off")
+    ax.set_title("Depth-3 tree on the 246,008 training applicants (Gini). Box colour: share of defaults", color=INK, fontsize=11)
+    fig.tight_layout()
+    fig.savefig(OUT / "tree_diagram.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def impurity_plot():
+    split = pd.read_csv("results/tree_root_split.csv").set_index("criterion").loc["gini"]
+    p = np.linspace(0, 0.4, 400)
+    gini = 2 * p * (1 - p)
+    entropy = -(p * np.log2(p, where=p > 0, out=np.zeros_like(p)) + (1 - p) * np.log2(1 - p)) / 2
+    parent, left, right = split["defaults"] / split["samples"], split["defaults_left"] / split["n_left"], split["defaults_right"] / split["n_right"]
+    share = split["n_left"] / split["samples"]
+    fig, ax = plt.subplots(figsize=(7.5, 4.6), facecolor=SURFACE)
+    ax.plot(p, gini, color=MODEL, linewidth=2, label="Gini, 2p(1-p)")
+    ax.plot(p, entropy, color=SERIES[1], linewidth=2, linestyle="--", label="Entropy in bits, divided by 2")
+    ax.plot([left, right], [split["impurity_left"], split["impurity_right"]], color=INK_SECONDARY, linewidth=1, zorder=2)
+    for x, y, label, text_at in (
+        (parent, split["impurity_parent"], f"parent {split['impurity_parent']:.4f}", (0.17, 0.155)),
+        (left, split["impurity_left"], f"left {split['impurity_left']:.4f}", (0.19, 0.27)),
+        (right, split["impurity_right"], f"right {split['impurity_right']:.4f}", (0.17, 0.105)),
+    ):
+        ax.plot([x], [y], marker="o", markersize=7, color=INK, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=5)
+        ax.annotate(label, (x, y), xytext=text_at, textcoords="data", ha="left", va="center", fontsize=9, color=INK, arrowprops=dict(arrowstyle="-", color=INK_SECONDARY, linewidth=0.8, shrinkA=2, shrinkB=4))
+    ax.set(xlabel="Share of defaults in the node, p", ylabel="Impurity", title="Impurity of the root node and its two children", xlim=(0, 0.4))
+    ax.text(0.98, 0.05, f"root split EXT_SOURCE_3 <= {split['threshold']:.3f}\nweighted children {share * split['impurity_left'] + (1 - share) * split['impurity_right']:.4f}, decrease {split['decrease']:.4f}", transform=ax.transAxes, ha="right", fontsize=8.5, color=INK_SECONDARY)
+    ax.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "impurity.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def bagging_variance_plot():
+    table = pd.read_csv("results/forest_variance.csv")
+    fig, ax = plt.subplots(figsize=(7.5, 4.8), facecolor=SURFACE)
+    for color, (features, part) in zip(SERIES, table.groupby("max_features")):
+        rho, sigma2 = part["rho"].iloc[0], part["sigma2"].iloc[0]
+        b = np.logspace(0, np.log10(part["trees"].max()), 100)
+        ax.plot(b, rho * sigma2 + (1 - rho) * sigma2 / b, color=color, linewidth=1.5, zorder=2)
+        ax.plot(part["trees"], part["variance"], marker="o", markersize=6, linestyle="none", color=color, markeredgecolor=SURFACE, markeredgewidth=1.2, zorder=4, label=f"{features} columns per split: single tree {sigma2:.4f}, rho {rho:.3f}")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xticks([1, 2, 3, 5, 10, 30])
+    ax.set_xticklabels(["1", "2", "3", "5", "10", "30"])
+    ax.set(xlabel="Trees averaged", ylabel="Variance of the predicted probability", title="Averaging trees removes variance")
+    ax.text(0.02, 0.04, "dots: measured over 8 training subsamples and 49,202 applicants\nlines: $\\rho\\sigma^2 + (1-\\rho)\\sigma^2 / B$, $\\sigma^2$ = variance of one tree", transform=ax.transAxes, fontsize=8.5, color=INK_SECONDARY)
+    ax.legend(loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "bagging_variance.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def boosting_demo_plot():
+    demo = pd.read_csv("results/boosting_demo.csv")
+    demo = demo[demo["round"] >= 5]
+    fig, (loss, pr) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    for column, color, style, label in (
+        ("train_log_loss", REFERENCE, "-", "Training, hand-written"),
+        ("lightgbm_train_log_loss", REFERENCE, "--", "Training, LightGBM"),
+        ("validation_log_loss", MODEL, "-", "Validation, hand-written"),
+        ("lightgbm_validation_log_loss", SERIES[1], "--", "Validation, LightGBM"),
+    ):
+        loss.plot(demo["round"], demo[column], color=color, linestyle=style, linewidth=2 if "validation" in column else 1.5, label=label)
+    for column, color, style, label in (
+        ("validation_pr_auc", MODEL, "-", "Hand-written"),
+        ("lightgbm_validation_pr_auc", SERIES[1], "--", "LightGBM"),
+    ):
+        pr.plot(demo["round"], demo[column], color=color, linestyle=style, linewidth=2, label=label)
+    loss.set(xlabel="Boosting rounds", ylabel="Log loss (fold 0)", title="Log loss by round")
+    pr.set(xlabel="Boosting rounds", ylabel="Validation PR-AUC (fold 0)", title="Validation PR-AUC by round")
+    loss.legend(loc="upper right", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    pr.legend(loc="lower right", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    for ax in (loss, pr):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "boosting_demo.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -340,6 +457,10 @@ def main():
     forest_plot()
     boosting_plot()
     tuning_plot()
+    tree_diagram_plot()
+    impurity_plot()
+    bagging_variance_plot()
+    boosting_demo_plot()
 
 
 if __name__ == "__main__":

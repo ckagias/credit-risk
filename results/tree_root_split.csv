@@ -1,0 +1,3 @@
+criterion,feature,threshold,samples,defaults,impurity_parent,n_left,defaults_left,impurity_left,n_right,defaults_right,impurity_right,decrease
+gini,EXT_SOURCE_3,0.314694,246008,19860,0.148424,35915,6070,0.280891,210093,13790,0.122659,0.002665
+entropy,EXT_SOURCE_2,0.414556,246008,19860,0.404743,66867,9289,0.581397,179141,10571,0.323500,0.011145

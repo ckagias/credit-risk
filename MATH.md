@@ -333,3 +333,26 @@ The three sweeps ran in this order and each used the best setting of the one bef
 - Trying one column per split is the worst setting (0.1582). The score is flat from 30 to 100 columns and drops slightly for all 300 (0.2208), where every tree sees the same strongest columns and the trees are more alike.
 - The forest with 500 trees, 30 columns per split and `min_samples_leaf` = 30 has PR-AUC 0.2274 (0.0026), ROC-AUC 0.7462 and log loss 0.2513. The logistic regression has 0.2249 (0.0045), 0.7475 and 0.2495. The PR-AUC difference is smaller than the fold-to-fold std, and the logistic regression is ahead on ROC-AUC and log loss.
 - The three settings were chosen on the same folds that are reported, so these scores are slightly optimistic. The holdout is not used yet.
+
+## Gradient boosting with LightGBM
+
+LightGBM fits trees one after another. Each new tree is fitted to the gradient of the log loss at the current predictions, and its output times the learning rate is added to the running score. Settings are LightGBM's defaults (31 leaves per tree, at least 20 applicants per leaf, no row or column sampling, no penalty) except the learning rate, and the pipeline is the same as for the forest. The number of rounds is chosen by early stopping: 10% of each training fold is held out, training stops when its log loss has not improved for 100 rounds, and the model keeps the rounds up to the best one. The validation fold is only used to score the result.
+
+5-fold stratified cross-validation, validation fold, mean (std over folds):
+
+| Learning rate | Best round | Fit time | PR-AUC | ROC-AUC | Log loss |
+|---:|---:|---:|---:|---:|---:|
+| 0.30 | 21 (4) | 1.7 s | 0.2269 (0.0057) | 0.7489 (0.0022) | 0.2494 (0.0008) |
+| 0.10 | 85 (18) | 2.3 s | 0.2366 (0.0063) | 0.7537 (0.0017) | 0.2475 (0.0006) |
+| 0.05 | 232 (67) | 3.8 s | 0.2389 (0.0051) | 0.7554 (0.0017) | 0.2471 (0.0006) |
+| 0.02 | 581 (108) | 6.9 s | 0.2401 (0.0052) | 0.7563 (0.0017) | 0.2468 (0.0005) |
+
+Fit time is the early-stopped fit on 16 cores, including the 100 rounds after the best one.
+
+![Validation PR-AUC by boosting round for four learning rates, and training against validation log loss](docs/img/lightgbm_rounds.png)
+
+- A smaller learning rate needs more rounds and scores better: PR-AUC 0.2269 at 0.3 and 0.2401 at 0.02. The gain from 0.05 to 0.02 (0.0012) is smaller than the std over folds.
+- The validation score is flat for a long time after its best round and does not fall steeply as the decision tree did. At learning rate 0.02 the validation log loss is 0.2468 from round 500 to round 1000 while the training log loss falls from 0.2305 to 0.2182.
+- At learning rate 0.3 or 0.1 the validation PR-AUC does turn down after the best round (0.2262 at 20 rounds, 0.2198 at 50 for 0.3). The best round also varies between folds, from 18 to 27 at 0.3 and from 424 to 690 at 0.02.
+- LightGBM at 0.02 has PR-AUC 0.2401 (0.0052), against 0.2274 (0.0026) for the forest and 0.2249 (0.0045) for the logistic regression, and ROC-AUC 0.7563 against 0.7462 and 0.7475. The settings other than the learning rate are untuned.
+- The score-by-round curves show the mean of the 5 folds at a grid of round numbers, and only the rounds that every fold reached, up to 3 times the fold's best round. The dots are the exact early-stopped results, so they can sit slightly above the curve.

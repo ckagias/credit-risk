@@ -273,6 +273,35 @@ def forest_plot():
     plt.close(fig)
 
 
+def boosting_plot():
+    curve = pd.read_csv("results/lightgbm_curve.csv")
+    reached = curve.groupby(["learning_rate", "rounds", "split"])["fold"].transform("nunique")
+    curve = curve[reached == curve["fold"].nunique()]
+    stopped = pd.read_csv("results/lightgbm_stopped.csv").groupby("learning_rate")[["best_round", "pr_auc"]].mean()
+    rates = sorted(curve["learning_rate"].unique(), reverse=True)
+    fig, (score, gap) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    for color, rate in zip(SERIES, rates):
+        part = curve[(curve["learning_rate"] == rate) & (curve["split"] == "validation")].groupby("rounds")["pr_auc"].mean()
+        score.plot(part.index, part.values, color=color, linewidth=2, label=f"learning rate {rate:g}")
+        score.plot([stopped.loc[rate, "best_round"]], [stopped.loc[rate, "pr_auc"]], marker="o", markersize=8, color=color, markeredgecolor=SURFACE, markeredgewidth=2, zorder=5)
+    score.text(0.98, 0.04, "dots: early stopping, mean best round\nand its validation PR-AUC", transform=score.transAxes, ha="right", fontsize=8.5, color=INK_SECONDARY)
+    score.set_xscale("log")
+    score.set(xlabel="Boosting rounds (trees)", ylabel="Validation PR-AUC (5-fold mean)", title="Score by round", ylim=(0.17, 0.25))
+    score.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    slow = curve[curve["learning_rate"] == rates[-1]]
+    for split, color, label in (("train", REFERENCE, "Training sample"), ("validation", MODEL, "Validation fold")):
+        part = slow[slow["split"] == split].groupby("rounds")["log_loss"].mean()
+        gap.plot(part.index, part.values, color=color, linewidth=2 if split == "validation" else 1.5, label=label)
+    gap.set_xscale("log")
+    gap.set(xlabel="Boosting rounds (trees)", ylabel="Log loss (5-fold mean)", title=f"Training against validation, learning rate {rates[-1]:g}")
+    gap.legend(loc="lower left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    for ax in (score, gap):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "lightgbm_rounds.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -283,6 +312,7 @@ def main():
     sigmoid_plot()
     tree_depth_plot()
     forest_plot()
+    boosting_plot()
 
 
 if __name__ == "__main__":

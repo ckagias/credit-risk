@@ -476,6 +476,38 @@ def pca_plot():
     plt.close(fig)
 
 
+def kmeans_plot():
+    summary = pd.read_csv("results/kmeans_summary.csv")
+    clusters = pd.read_csv("results/kmeans_clusters.csv")
+    mean = summary.groupby("k")[["inertia_per_row", "silhouette", "roc_auc"]].mean()
+    base_rate = clusters[clusters["k"] == 2].groupby("fold").apply(lambda g: (g["n_val"] * g["rate_val"]).sum() / g["n_val"].sum(), include_groups=False).mean()
+    fig, (elbow, rates, scores) = plt.subplots(1, 3, figsize=(15, 4.6), facecolor=SURFACE)
+    elbow.plot(mean.index, mean["inertia_per_row"], color=MODEL, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2)
+    elbow.set(xlabel="Number of clusters k", ylabel="Inertia per row (blue)", title="Inertia falls with every k", xticks=list(mean.index))
+    silhouette = elbow.twinx()
+    silhouette.plot(mean.index, mean["silhouette"], color=SERIES[1], linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2)
+    silhouette.set_ylabel("Silhouette score (orange)", color=INK_SECONDARY)
+    silhouette.spines["top"].set_visible(False)
+    five = clusters[(clusters["k"] == 5) & (clusters["fold"] == 0)].sort_values("rate_val")
+    positions = np.arange(len(five))
+    rates.bar(positions, five["rate_val"], color=MODEL, width=0.7)
+    rates.axhline(base_rate, color=REFERENCE, linewidth=1.5, linestyle=(0, (4, 3)), label=f"Overall rate ({base_rate:.3f})")
+    for x, (rate, n) in enumerate(zip(five["rate_val"], five["n_val"])):
+        rates.annotate(f"n={n:,}", (x, rate), xytext=(0, 4), textcoords="offset points", ha="center", fontsize=9, color=INK_SECONDARY)
+    rates.set(xlabel="Cluster (k = 5, fold 0, sorted by rate)", ylabel="Default rate in the validation fold", title="Default rate per cluster", ylim=(0, five["rate_val"].max() * 1.15), xticks=positions, xticklabels=[str(c) for c in five["cluster"]])
+    rates.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    scores.plot(mean.index, mean["roc_auc"], color=MODEL, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2)
+    scores.axhline(0.5, color=REFERENCE, linewidth=1.5, linestyle=(0, (4, 3)), label="No ranking (0.5)")
+    scores.set(xlabel="Number of clusters k", ylabel="Validation ROC-AUC of the cluster default rate", title="Cluster as a risk score", xticks=list(mean.index))
+    scores.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    for ax in (elbow, rates, scores):
+        style_axis(ax)
+    rates.grid(False, axis="x")
+    fig.tight_layout()
+    fig.savefig(OUT / "kmeans.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -493,6 +525,7 @@ def main():
     bagging_variance_plot()
     boosting_demo_plot()
     pca_plot()
+    kmeans_plot()
 
 
 if __name__ == "__main__":

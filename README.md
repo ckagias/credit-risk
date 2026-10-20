@@ -2,7 +2,7 @@
 
 Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, and PCA are done.
+Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, and k-means are done.
 
 ## Data
 
@@ -69,3 +69,11 @@ With the defaults Naive Bayes gives 94.7% of applicants a probability above 0.5 
 ![PCA: scree plot, cumulative variance and PR-AUC against components](docs/img/pca.png)
 
 The first component holds 26.0% of the variance and loads on the `_AVG`, `_MEDI` and `_MODE` copies of the housing columns. 18 components keep 80% of the variance, 26 keep 90% and 30 keep 95%. PR-AUC with 30 components against the raw 70 columns: logistic regression 0.1988 against 0.2061, LightGBM 0.2010 against 0.2303, Naive Bayes 0.1582 against 0.1431. PCA helps only Naive Bayes, whose columns it decorrelates. Results in `results/pca_variance.csv`, `results/pca_models.csv` and `results/pca_loadings.csv`.
+
+## k-means
+
+`src/kmeans.py` clusters the 70 continuous application columns of each training fold for k from 2 to 20, assigns the validation fold to the nearest centroid, and compares default rates per cluster. Chart in `docs/img/kmeans.png`.
+
+![k-means: inertia and silhouette, default rate per cluster, cluster rate as a risk score](docs/img/kmeans.png)
+
+The clusters do differ in default rate: at k = 5 the lowest and highest validation rates average 5.1% and 9.8% over the folds against 8.1% overall (chi-square p below 0.0001 at every k), and the gap widens with k, from 5.6% and 8.3% at k = 2 to 3.9% and 13.0% at k = 20. The applicants have no natural groups: the silhouette score is 0.49 at k = 2, where a small group of outliers splits off, 0.13 at k = 5 and 0.05 at k = 20, and inertia has no elbow. At k = 5 the clusters are described by loan size, by how much housing data the applicant has and by one cluster of 533 applicants with a bad `YEARS_BEGINEXPLUATATION` value. The cluster's default rate as a risk score gives ROC-AUC 0.549 at k = 5 and 0.607 at k = 20, against 0.5 for no ranking. Results in `results/kmeans_summary.csv`, `results/kmeans_clusters.csv` and `results/kmeans_profile.csv`.

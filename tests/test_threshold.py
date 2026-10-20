@@ -98,3 +98,15 @@ def test_the_curve_has_one_row_per_scoring_ratio_and_threshold():
     folds = [((rng.random(2000) < p).astype(int), p)]
     curve = threshold.curve_rows({"a": folds}, ratios=[2, 10])
     assert len(curve) == 2 * len(threshold.GRID)
+
+
+def test_the_expected_cost_of_true_probabilities_matches_the_realised_cost_and_is_lowest_at_the_bayes_threshold():
+    rng = np.random.default_rng(5)
+    p = rng.beta(1, 9, size=400000)
+    y = (rng.random(400000) < p).astype(int)
+    for t in (0.05, threshold.bayes_threshold(10), 0.3):
+        row = threshold.rule_row(y, p, t, 10)
+        assert row["expected_cost_per_1000"] == pytest.approx(row["cost_per_1000"], rel=0.03)
+    expected = {t: threshold.expected_cost_per_1000(p, t, 10) for t in (0.05, threshold.bayes_threshold(10), 0.3)}
+    assert min(expected, key=expected.get) == pytest.approx(threshold.bayes_threshold(10))
+    assert threshold.expected_cost_per_1000(p, threshold.bayes_threshold(10), 10) == pytest.approx(1000 * np.mean(np.minimum(10 * p, 1 - p)))

@@ -92,3 +92,10 @@ def test_pooled_curves_give_one_row_per_bin_for_each_model_and_calibrator(toy):
     curves = calibration.pooled_curves(predictions, bins=5)
     assert len(curves) == 3 * 5
     assert set(curves["calibrator"]) == {"none", "platt", "isotonic"}
+
+
+def test_fold_predictions_can_return_the_fitted_calibrators(toy):
+    predictions, calibrators = calibration.fold_predictions(toy[0], "logistic", with_calibrators=True)
+    assert set(calibrators) == {"platt", "isotonic"}
+    assert set(predictions) == {"none", "platt", "isotonic"}
+    assert hasattr(calibrators["platt"], "model_")

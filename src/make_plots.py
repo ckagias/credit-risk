@@ -725,6 +725,37 @@ def threshold_plot():
     plt.close(fig)
 
 
+def weighted_shift_plot():
+    sample = pd.read_csv("results/weighted_shift_sample.csv")
+    shift = pd.read_csv("results/weighted_shift.csv")
+    log_weight = shift["log_weight"].iloc[0]
+    fig, (scatter, constant) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    scatter.scatter(sample["logit_plain"], sample["logit_weighted"], s=5, color=MODEL, alpha=0.3, linewidths=0, rasterized=True)
+    x = np.array([sample["logit_plain"].min(), sample["logit_plain"].max()])
+    scatter.plot(x, x + log_weight, color=SERIES[1], linewidth=2, label=f"Log-odds plus log w = {log_weight:.2f}")
+    scatter.plot(x, x, color=REFERENCE, linewidth=1.5, linestyle=(0, (4, 3)), label="No shift")
+    scatter.set(xlabel="Log-odds, LightGBM", ylabel="Log-odds, LightGBM with balanced class weights", title="Class weights add a constant to the log-odds")
+    scatter.legend(loc="upper left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    scatter.text(0.97, 0.05, f"median shift {shift['median_log_odds_shift'].mean():.2f}, 5 folds\n5,000 validation applicants of fold 0", transform=scatter.transAxes, ha="right", fontsize=8.5, color=INK_SECONDARY)
+    base = 24825 / 307511
+    weight = (1 - base) / base
+    q = np.linspace(0.01, 0.99, 400)
+    for color, w, label in ((MODEL, 1.0, "Weight 1 on defaulters"), (SERIES[1], weight, f"Weight {weight:.1f} on defaulters")):
+        loss = -(w * base * np.log(q) + (1 - base) * np.log(1 - q))
+        constant.plot(q, loss, color=color, linewidth=2, label=label)
+        best = w * base / (w * base + 1 - base)
+        best_loss = -(w * base * np.log(best) + (1 - base) * np.log(1 - best))
+        constant.plot([best], [best_loss], color=color, linewidth=0, marker="o", markersize=8, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=4)
+        constant.annotate(f"minimum {best_loss:.3f} at q = {best:.3f}", (best, best_loss), xytext=(8, -16), textcoords="offset points", fontsize=8.5, color=INK_SECONDARY)
+    constant.set(xlabel="Constant prediction q for every applicant", ylabel="Weighted log loss", title="The weights move the best constant from 0.081 to 0.5", ylim=(0, 3))
+    constant.legend(loc="upper center", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    for ax in (scatter, constant):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "weighted_shift.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -750,6 +781,7 @@ def main():
     imbalance_plot()
     calibration_plot()
     threshold_plot()
+    weighted_shift_plot()
 
 
 if __name__ == "__main__":

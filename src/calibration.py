@@ -89,15 +89,17 @@ def calibration_split(part, share=CALIBRATION_SHARE, seed=SEED):
     return Z_model, Z_cal, y_model, y_cal
 
 
-def fold_predictions(part, model_name):
+def fold_predictions(part, model_name, with_calibrators=False):
     Z_model, Z_cal, y_model, y_cal = calibration_split(part)
     model = fit_model(model_name, Z_model, y_model)
     p_cal = np.clip(model.predict_proba(Z_cal)[:, 1], evaluate.EPS, 1 - evaluate.EPS)
     p_val = np.clip(model.predict_proba(part["Z_val"])[:, 1], evaluate.EPS, 1 - evaluate.EPS)
     out = {"none": p_val}
+    calibrators = {}
     for name in CALIBRATORS[1:]:
-        out[name] = make_calibrator(name).fit(p_cal, y_cal).predict(p_val)
-    return out
+        calibrators[name] = make_calibrator(name).fit(p_cal, y_cal)
+        out[name] = calibrators[name].predict(p_val)
+    return (out, calibrators) if with_calibrators else out
 
 
 def run(parts, models=MODELS):

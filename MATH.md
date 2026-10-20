@@ -639,3 +639,105 @@ $J$ is bounded below by 0 and there are finitely many assignments, so the loop e
 - Most of the fall comes at the start. After the first update $J$ is 1.7% to 13.5% above its final value, after 5 iterations 0.1% to 3.1%, and after 20 iterations at most 0.05%. The remaining iterations of the 45 to 116 only move the few rows near a boundary between two clusters.
 - The five starts end at five different values, from 10.167 to 10.564 million (a spread of 3.9%), so these are different local minima. The k-means++ start of the main k-means step reaches 10.151 million in this fold, lower than all five random starts.
 - Per row, $J$ is 70 for $k = 1$ (the 70 standardised columns) and, as the mean over the 5 training folds, 58.3, 54.9, 51.1, 45.6, 41.6 and 36.8 for $k = 2, 3, 5, 8, 12, 20$. At $k = 5$ the clusters explain 27.0% of the total variance and at $k = 20$ 47.4%, so most of the variance stays inside the clusters. The silhouette scores (0.49 at $k = 2$, 0.13 at $k = 5$) and the default rates per cluster are in the k-means section of `README.md` and in `docs/img/kmeans.png`.
+
+## Imbalance, calibration and thresholds
+
+Notation as above, with $\pi = 0.0807$ the base rate, $\hat p_i$ a predicted probability and $\sigma(z) = 1/(1 + e^{-z})$. The working code is in `src/imbalance.py`, `src/calibration.py`, `src/threshold.py` and the checks of this section in `src/weighted_math.py`.
+
+### Weighted log loss
+
+Class weights multiply each applicant's log loss by $c_i$, with $c_i = w$ for a defaulter and $c_i = 1$ for everyone else:
+
+$$
+L_w = -\frac1n \sum_{i=1}^{n} c_i \left[\, y_i \log \hat p_i + (1 - y_i) \log (1 - \hat p_i) \,\right]
+$$
+
+A weight of $w$ is the same loss as copying every defaulter $w$ times (`tests/test_weighted_math.py`), and random oversampling is that with whole numbers of copies. "Balanced" weights take $w = (1 - \pi)/\pi = N/P = 11.39$, so both classes carry the same total weight.
+
+The weights change what the best prediction is. For a group of applicants with true default probability $p$ the prediction $q$ that minimises $L_w$ solves $\frac{d}{dq}\left[ -w p \log q - (1 - p) \log (1 - q) \right] = 0$, which gives
+
+$$
+q^\star = \frac{w\,p}{w\,p + 1 - p}, \qquad \frac{q^\star}{1 - q^\star} = w \cdot \frac{p}{1 - p}
+$$
+
+The odds are multiplied by $w$, equivalently the log-odds are shifted by $\log w = 2.43$. With $w = (1 - \pi)/\pi$ the best constant prediction for the whole population is 0.5. Undersampling the repaid loans to the size of the defaulters changes the class ratio by the same factor and gives the same shift. For a logistic regression whose form is right, the weights change only the intercept, by $\log w$ (the slope is unchanged, tested on simulated data). To undo the shift, multiply the odds by $1/w$.
+
+![Log-odds of LightGBM with and without class weights, and the weighted log loss of a constant](docs/img/weighted_shift.png)
+
+On the validation folds, for LightGBM with and without `scale_pos_weight` = 11.39 (`results/weighted_shift.csv`, 5 folds):
+
+| Quantity | Value |
+|---|---|
+| $\log w$ | 2.4325 |
+| Median log-odds shift of the weighted model, per fold | 2.30 to 2.37 |
+| Correlation of the two log-odds | 0.956 to 0.965 |
+| Slope of a line fitted to the two log-odds | 0.99 to 1.13 |
+| Mean predicted probability, weighted model | 0.3995 to 0.4050 (base rate 0.081) |
+| Mean of the formula $q^\star$ applied to the unweighted predictions | 0.413 to 0.432 |
+| Log loss: unweighted / weighted / unweighted shifted by the formula | 0.2477 / 0.5584 / 0.5882 |
+| Weighted log loss $L_w$: unweighted / weighted model | 2.0592 / 1.0830 |
+
+- The weighted model's probabilities are the unweighted ones shifted by a nearly constant amount on the log-odds scale (the points lie along a line of slope 1), a bit less than the exact $\log w$: 2.34 against 2.43. The formula holds for a model that fits the true probabilities, and a boosted model stopped early by PR-AUC does not, so a gap is expected. The cause was not isolated.
+- The weighted model has the better weighted loss (1.083 against 2.059) and the much worse ordinary log loss (0.558 against 0.248). The ranking is unchanged to within noise (PR-AUC 0.2386 against 0.2386 in the imbalance comparison), which is why the weights are not a means of finding more defaulters here.
+
+### Calibration
+
+A model is calibrated when $P(y = 1 \mid \hat p = s) = s$ for every score $s$. The reliability diagram cuts the validation applicants into $B = 10$ groups of equal size by $\hat p$ and plots the mean prediction $\bar p_b$ against the default rate $\bar y_b$ of each group. Two numbers summarise it:
+
+$$
+\mathrm{ECE} = \sum_{b=1}^{B} \frac{n_b}{n} \left| \bar p_b - \bar y_b \right|, \qquad \mathrm{Brier} = \frac1n \sum_{i=1}^{n} (\hat p_i - y_i)^2
+$$
+
+Log loss and the Brier score are proper scoring rules: their expected value is smallest when $\hat p$ is the true probability, so a model trained on log loss is pushed towards calibration, and a model trained on a weighted loss is not.
+
+Two calibrators are fitted on 20% of each training fold that the model did not see:
+
+- Platt scaling: $\hat p' = \sigma(a \cdot \mathrm{logit}(\hat p) + b)$, with $a$ and $b$ found by logistic regression of $y$ on $\mathrm{logit}(\hat p)$. With $a > 0$ it keeps the order of the applicants, so PR-AUC and ROC-AUC are unchanged. A weight shift is the special case $a = 1$, $b = -\log w$.
+- Isotonic regression: the non-decreasing step function $f$ that minimises $\sum_i (y_i - f(\hat p_i))^2$ (found by pooling adjacent applicants whose rates are out of order). It has no assumed shape, but its steps give many applicants the same probability.
+
+| Model | ECE: none / Platt / isotonic | Log loss: none / Platt / isotonic | PR-AUC: none / Platt / isotonic |
+|---|---|---|---|
+| Logistic regression | 0.0025 / 0.0026 / 0.0031 | 0.2496 / 0.2496 / 0.2512 | 0.2246 / 0.2246 / 0.2175 |
+| LightGBM | 0.0035 / 0.0032 / 0.0029 | 0.2477 / 0.2476 / 0.2491 | 0.2357 / 0.2357 / 0.2278 |
+| LightGBM, class weights | 0.3205 / 0.0038 / 0.0040 | 0.5584 / 0.2475 / 0.2488 | 0.2363 / 0.2363 / 0.2269 |
+| Random forest | 0.0129 / 0.0027 / 0.0039 | 0.2518 / 0.2501 / 0.2517 | 0.2256 / 0.2256 / 0.2177 |
+
+![Reliability curves before and after calibration, calibration error and PR-AUC](docs/img/calibration.png)
+
+- Fitted on the class-weighted LightGBM, Platt scaling finds $a$ = 1.04 to 1.08 and $b$ = -2.33 to -2.36 (`results/weighted_shift.csv`). The shift it removes is $b \approx -2.34$, close to $-\log w = -2.43$, with a slope near 1. After it the log loss is 0.2475, the same as for the unweighted LightGBM (0.2477).
+- Logistic regression and LightGBM trained with the plain log loss are calibrated to within the noise of the measure, so the calibration step has nothing to repair (the log loss changes by at most 0.0001 with Platt scaling). The random forest averages leaf frequencies, which pulls predictions towards the middle (0.209 predicted against 0.256 observed in the top decile), and Platt scaling takes its ECE from 0.0129 to 0.0027.
+- Isotonic regression gives the same calibration but lowers PR-AUC in every fold, by 0.0070 to 0.0094, because the steps make ties among the applicants.
+- The ECE depends on the number of groups and has a noise floor, about 0.0025 for 49,000 applicants in 10 groups. Differences between 0.0025 and 0.0040 are not a real difference between models.
+
+### Expected cost and the threshold
+
+Flag an applicant, and refuse the loan, when $\hat p \ge t$. A missed default (accepting an applicant who defaults) costs $c_{FN}$ and a refused good loan costs $c_{FP}$. The cost of a threshold is
+
+$$
+C(t) = c_{FN} \cdot \mathrm{FN}(t) + c_{FP} \cdot \mathrm{FP}(t), \qquad r = \frac{c_{FN}}{c_{FP}}
+$$
+
+If $\hat p$ is the true probability, accepting an applicant has expected cost $\hat p\, c_{FN}$ and refusing one has expected cost $(1 - \hat p)\, c_{FP}$. Refusing is cheaper when $\hat p\, c_{FN} > (1 - \hat p)\, c_{FP}$, that is when
+
+$$
+\hat p > \frac{c_{FP}}{c_{FP} + c_{FN}} = \frac{1}{1 + r}
+$$
+
+so the best threshold is $t^\star = 1/(1 + r)$, and the expected cost per applicant at that threshold is $\mathbb{E}\left[\min\left(r\,\hat p,\; 1 - \hat p\right)\right] c_{FP}$. It needs calibrated probabilities. A model whose odds are $w$ times too large has its best threshold at the odds $w/r$, that is at $\sigma(\log w - \log r)$ in log-odds terms: for $w = 11.39$ and $r = 10$ the odds are 1.139 and the threshold is 0.532.
+
+With $r = 10$ and $c_{FP} = 1$ (`results/threshold_folds.csv`, cost per 1,000 applicants, mean of 5 folds):
+
+| Scores | Rule | Threshold | Realised cost | Expected cost from the model's own probabilities |
+|---|---|---:|---:|---:|
+| LightGBM | $1/(1 + r)$ | 0.0909 | 535.4 | 538.7 |
+| LightGBM | tuned on the other 4 folds | 0.090 | 535.2 | 538.7 |
+| LightGBM | fixed 0.5 | 0.5 | 796.4 | 790.2 |
+| LightGBM, class weights | $1/(1 + r)$ | 0.0909 | 894.6 | 592.5 |
+| LightGBM, class weights | tuned on the other 4 folds | 0.535 | 534.7 | 2,234.1 |
+| LightGBM, class weights, Platt | $1/(1 + r)$ | 0.0909 | 535.9 | 528.7 |
+
+![Cost against threshold for four cost ratios, and with and without calibration](docs/img/threshold.png)
+
+- For the calibrated LightGBM the realised cost at the formula's threshold (535.4) is within 0.6% of the cost the model expects from its own probabilities (538.7), and the searched threshold (0.090) is the formula's (0.0909). The expected cost is also close at ratios 2 and 5 (156.1 against 157.2 and 340.9 against 344.0) and 2.8% too high at 20 (742.4 against 722.4).
+- The class-weighted model expects a cost of 592.5 at the formula's threshold, because its probabilities are too high, and pays 894.6 (it refuses 97% of the applicants). The threshold found by search, 0.535, is the one the odds shift predicts (0.532), and the realised cost there (534.7) is as good as the calibrated model's.
+- The threshold depends on $r$, which is assumed. For $r = 2, 5, 10, 20$ the best thresholds are 0.335, 0.16, 0.09 and 0.05. A threshold chosen for $r = 10$ costs 88.1% more than the best one if the true ratio is 2, 12.2% more if it is 5 and 15.5% more if it is 20.

@@ -2,7 +2,7 @@
 
 Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, and k-means are done.
+Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, k-means, class imbalance, calibration, the decision threshold and the maths of Phases 6 and 7 are done.
 
 ## Data
 
@@ -143,4 +143,5 @@ Cost per 1,000 applicants in units of one refused good loan, `r` = 10, mean of 5
 - The threshold that maximises F1 costs 8% more than the formula (577.3 against 535.4, higher in 5 of 5 folds) and refuses half as many applicants, and fixed 0.5 saves only 1.3% over refusing nobody (796.4 against 807.3).
 - The cost ratio is an assumption and the threshold depends on it. A threshold chosen for `r` = 10 costs 88.1% more than the best one if the true ratio is 2, 12.2% more if it is 5 and 15.5% more if it is 20. Choosing for 5 when the truth is 10 costs 11.2% more, and for 20 when the truth is 10, 10.2% more.
 - The formula needs calibrated probabilities. For LightGBM with balanced class weights the lowest cost is at 0.535 (534.7), the odds shift of 11.4 times applied to 0.0909, and the formula's 0.0909 refuses 97.3% of the applicants at a cost of 894.6. After Platt scaling the formula works again (535.9).
+- A calibrated model predicts its own cost: with the probabilities of the LightGBM the expected cost at the formula's threshold is 538.7 against a realised 535.4 (0.6% apart), and for `r` = 20 742.4 against 722.4. For the class-weighted model the expected cost (592.5) is far from the realised one (894.6).
 - Costs are per applicant and equal for all loans. Weighting by loan size, a different cost ratio per loan, or the holdout, are not used here. Results in `results/threshold_folds.csv` and `results/threshold_curve.csv`.

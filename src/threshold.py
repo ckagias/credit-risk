@@ -54,6 +54,11 @@ def best_f1_threshold(y, p, grid=GRID):
     return float(grid[np.argmax(f1)])
 
 
+def expected_cost_per_1000(p, threshold, ratio):
+    p = np.asarray(p)
+    return float(1000 * np.mean(np.where(p >= threshold, 1 - p, ratio * p)))
+
+
 def rule_row(y, p, threshold, ratio):
     missed, refused_good = outcomes(y, p, np.array([threshold]))
     missed, refused_good = int(missed[0]), int(refused_good[0])
@@ -61,6 +66,7 @@ def rule_row(y, p, threshold, ratio):
     return {
         "threshold": threshold,
         "cost_per_1000": 1000 * (ratio * missed + refused_good) / len(y),
+        "expected_cost_per_1000": expected_cost_per_1000(p, threshold, ratio),
         "share_refused": (positives - missed + refused_good) / len(y),
         "recall": (positives - missed) / positives,
     }

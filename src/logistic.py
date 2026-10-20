@@ -15,9 +15,9 @@ RESULTS = Path("results/logistic.csv")
 SEED = 42
 
 
-def make_model(C=1.0, l1_ratio=0.0, solver="lbfgs", max_iter=1000):
+def make_model(C=1.0, l1_ratio=0.0, solver="lbfgs", max_iter=1000, clip=False):
     return make_pipeline(
-        make_preprocessor(scale=True),
+        make_preprocessor(scale=True, clip=clip),
         LogisticRegression(C=C, l1_ratio=l1_ratio, solver=solver, max_iter=max_iter),
     )
 

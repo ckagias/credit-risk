@@ -2,7 +2,7 @@
 
 Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, and Naive Bayes are done.
+Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, and PCA are done.
 
 ## Data
 
@@ -61,3 +61,11 @@ kNN is behind logistic regression in every fold at every size. The SVM is level 
 | 3 `EXT_SOURCE` | 0.1942 | 0.1971 |
 
 With the defaults Naive Bayes gives 94.7% of applicants a probability above 0.5 (log loss 29.7). Dropping the 0/1 columns, flattening the likelihoods with a larger `var_smoothing` and calibrating repairs the probabilities, and more columns still make the ranking worse. Results in `results/naive_bayes.csv`.
+
+## PCA
+
+`src/pca.py` fits PCA on the 70 continuous application columns of each training fold and scores models on the top components. Chart in `docs/img/pca.png`.
+
+![PCA: scree plot, cumulative variance and PR-AUC against components](docs/img/pca.png)
+
+The first component holds 26.0% of the variance and loads on the `_AVG`, `_MEDI` and `_MODE` copies of the housing columns. 18 components keep 80% of the variance, 26 keep 90% and 30 keep 95%. PR-AUC with 30 components against the raw 70 columns: logistic regression 0.1988 against 0.2061, LightGBM 0.2010 against 0.2303, Naive Bayes 0.1582 against 0.1431. PCA helps only Naive Bayes, whose columns it decorrelates. Results in `results/pca_variance.csv`, `results/pca_models.csv` and `results/pca_loadings.csv`.

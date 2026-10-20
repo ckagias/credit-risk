@@ -445,6 +445,37 @@ def boosting_demo_plot():
     plt.close(fig)
 
 
+def pca_plot():
+    variance = pd.read_csv("results/pca_variance.csv").groupby("component")[["explained_ratio", "cumulative"]].mean()
+    models = pd.read_csv("results/pca_models.csv")
+    names = {"logistic": "Logistic regression", "lightgbm": "LightGBM", "naive_bayes": "Naive Bayes"}
+    fig, (scree, cumulative, scores) = plt.subplots(1, 3, figsize=(15, 4.6), facecolor=SURFACE)
+    scree.bar(variance.index, variance["explained_ratio"], color=MODEL, width=0.7)
+    scree.annotate(f"component 1: {variance['explained_ratio'].iloc[0]:.0%}", (1, variance["explained_ratio"].iloc[0]), xytext=(6, -2), textcoords="offset points", fontsize=9, color=INK_SECONDARY, va="top")
+    scree.set(xlabel="Component", ylabel="Share of the variance", title="Scree plot, 70 continuous columns", xlim=(0, 71))
+    cumulative.plot(variance.index, variance["cumulative"], color=MODEL, linewidth=2)
+    for target in (0.8, 0.9, 0.95):
+        needed = int((variance["cumulative"] < target).sum() + 1)
+        cumulative.plot([needed], [target], marker="o", markersize=7, color=MODEL, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=3)
+        cumulative.annotate(f"{needed} components: {target:.0%}", (needed, target), xytext=(8, -12), textcoords="offset points", fontsize=9, color=INK_SECONDARY)
+    cumulative.set(xlabel="Number of components", ylabel="Cumulative share of the variance", title="Variance kept", xlim=(0, 71), ylim=(0, 1.02))
+    for color, (model, label) in zip(SERIES, names.items()):
+        part = models[(models["model"] == model)]
+        curve = part[part["representation"] == "pca"].groupby("n_columns")["pr_auc"].mean()
+        raw = part[part["representation"] == "raw"]["pr_auc"].mean()
+        scores.plot(curve.index, curve.values, color=color, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2, label=label)
+        scores.axhline(raw, color=color, linewidth=1.2, linestyle=(0, (4, 3)), alpha=0.8)
+    scores.plot([], [], color=REFERENCE, linewidth=1.2, linestyle=(0, (4, 3)), label="Same model on the raw columns")
+    scores.set(xlabel="Number of components used", ylabel="Mean validation PR-AUC (5 folds)", title="Does PCA help a model?", xlim=(0, 72))
+    scores.legend(loc="lower right", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    for ax in (scree, cumulative, scores):
+        style_axis(ax)
+    scree.grid(False, axis="x")
+    fig.tight_layout()
+    fig.savefig(OUT / "pca.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -461,6 +492,7 @@ def main():
     impurity_plot()
     bagging_variance_plot()
     boosting_demo_plot()
+    pca_plot()
 
 
 if __name__ == "__main__":

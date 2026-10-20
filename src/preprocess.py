@@ -7,6 +7,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
+from features import load_group
 from split import load_part
 
 ID_AND_LABEL = ["SK_ID_CURR", "TARGET"]
@@ -84,6 +85,8 @@ def feature_columns(con):
     return [row[1] for row in con.execute("PRAGMA table_info(application_train)") if row[1] not in ID_AND_LABEL]
 
 
-def load_features(con, part):
+def load_features(con, part, groups=()):
     frame = load_part(con, part, feature_columns(con))
+    for group in groups:
+        frame = frame.merge(load_group(con, group, part), on="SK_ID_CURR", how="left", validate="one_to_one")
     return frame.drop(columns=ID_AND_LABEL), frame["TARGET"].to_numpy()

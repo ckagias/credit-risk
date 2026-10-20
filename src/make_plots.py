@@ -508,6 +508,114 @@ def kmeans_plot():
     plt.close(fig)
 
 
+def knn_distance_plot():
+    distance = pd.read_csv("results/knn_distance.csv")
+    curve = distance.groupby("columns")["ratio"].agg(["mean", "min", "max"])
+    sweep = pd.read_csv("results/knn_svm.csv").query("experiment == 'knn_k'")
+    sweep = sweep.assign(setting=sweep["setting"].astype(float)).groupby("setting")["pr_auc"].mean().sort_index()
+    ext = pd.read_csv("results/knn_ext.csv")
+    ext_knn = ext[ext["model"] == "knn"].groupby("setting")["pr_auc"].mean()
+    ext_logistic = ext[ext["model"] == "logistic"]["pr_auc"].mean()
+    fig, (contrast, neighbours) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    contrast.fill_between(curve.index, curve["min"], curve["max"], color=MODEL, alpha=0.15, linewidth=0)
+    contrast.plot(curve.index, curve["mean"], color=MODEL, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2)
+    contrast.set_xscale("log")
+    contrast.set_xticks(curve.index)
+    contrast.set_xticklabels([str(c) for c in curve.index])
+    contrast.set(xlabel="Number of continuous columns used", ylabel="Distance to nearest neighbour / median distance", title="The nearest neighbour is not much nearer")
+    contrast.text(0.04, 0.9, "300 validation applicants against 20,000 training rows,\nrandom columns, band: min and max of 5 draws", transform=contrast.transAxes, fontsize=8.5, color=INK_SECONDARY, va="top")
+    neighbours.plot(sweep.index, sweep.values, color=MODEL, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2, label="kNN, all columns")
+    neighbours.plot(ext_knn.index, ext_knn.values, color=SERIES[1], linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2, label="kNN, 3 EXT_SOURCE columns")
+    neighbours.axhline(ext_logistic, color=SERIES[1], linewidth=1.2, linestyle=(0, (4, 3)), label="Logistic regression, 3 EXT_SOURCE columns")
+    neighbours.axhline(0.2139, color=MODEL, linewidth=1.2, linestyle=(0, (4, 3)), label="Logistic regression, all columns")
+    neighbours.set_xscale("log")
+    neighbours.set_xticks(sweep.index)
+    neighbours.set_xticklabels([str(int(k)) for k in sweep.index])
+    neighbours.set(xlabel="Number of neighbours k", ylabel="Mean validation PR-AUC (5 folds)", title="kNN needs a large k, 20,000 training rows")
+    neighbours.legend(loc="lower right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    for ax in (contrast, neighbours):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "knn_distance.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def svm_margin_plot():
+    support = pd.read_csv("results/svm_support.csv")
+    margins = pd.read_csv("results/svm_margins.csv")
+    m = (2 * margins["y"] - 1) * margins["f"]
+    grid = np.linspace(-2.5, 2.5, 200)
+    fig, (loss, bound) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    loss.plot(grid, (grid < 0).astype(float), color=REFERENCE, linewidth=1.5, label="0-1 loss")
+    loss.plot(grid, np.maximum(0, 1 - grid), color=MODEL, linewidth=2.2, label="Hinge loss (SVM)")
+    loss.plot(grid, np.log2(1 + np.exp(-grid)), color=SERIES[1], linewidth=2.2, label="Log loss (logistic regression), in bits")
+    loss.set(xlabel="Margin $y_i f(x_i)$, $y_i = \\pm 1$", ylabel="Loss", title="Hinge loss against log loss", xlim=(-2.5, 2.5), ylim=(0, 3.6))
+    histogram = loss.twinx()
+    histogram.hist([m[margins["y"] == 0], m[margins["y"] == 1]], bins=np.linspace(-2.5, 2.5, 41), color=[SERIES[2], SERIES[3]], alpha=0.45, label=["Validation non-defaulters", "Validation defaulters"])
+    histogram.set_ylim(0, margins.shape[0] * 0.5)
+    histogram.set_yticks([])
+    histogram.spines["top"].set_visible(False)
+    handles = loss.get_legend_handles_labels()
+    extra = histogram.get_legend_handles_labels()
+    loss.legend(handles[0] + extra[0], handles[1] + extra[1], loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    bound.plot(support["C"], support["share_support"], color=MODEL, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2, label="Support vectors")
+    bound.plot(support["C"], support["share_at_upper_bound"], color=SERIES[1], linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2, label="Support vectors at the upper bound ($\\alpha_i = C$)")
+    for c, width in zip(support["C"], support["margin_width"]):
+        bound.annotate(f"margin width {width:.3f}", (c, 0.45), ha="center", fontsize=8.5, color=INK_SECONDARY)
+    bound.set_xscale("log")
+    bound.set_xticks(support["C"])
+    bound.set_xticklabels([f"{c:g}" for c in support["C"]])
+    bound.set(xlabel="C", ylabel="Share of the 5,000 training rows", title="Larger C, fewer points inside the margin", ylim=(0.4, 1.02), xlim=(0.04, 25))
+    bound.legend(loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    for ax in (loss, bound):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "svm_margin.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def pca_math_plot():
+    rec = pd.read_csv("results/pca_reconstruction.csv")
+    deciles = pd.read_csv("results/pca_deciles.csv")
+    fig, (error, rates) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    error.plot(rec["components"], rec["val_error"], color=MODEL, linewidth=2, label="Measured on the validation fold")
+    error.plot(rec["components"], rec["tail_eigenvalues"], color=SERIES[1], linewidth=0, marker="o", markersize=4, label="Sum of the discarded eigenvalues, from the training fold")
+    error.set(xlabel="Components kept", ylabel="Mean squared reconstruction error", title="Reconstruction error is the discarded variance", xlim=(0, 70))
+    error.legend(loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    overall = np.average(deciles["default_rate"], weights=deciles["n"])
+    for color, (component, part) in zip(SERIES, deciles.groupby("component")):
+        rates.plot(part["decile"], part["default_rate"], color=color, linewidth=2, marker="o", markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.2, label=f"Component {component}")
+    rates.axhline(overall, color=REFERENCE, linewidth=1.5, linestyle=(0, (4, 3)), label=f"Overall rate ({overall:.3f})")
+    rates.set(xlabel="Decile of the component score", ylabel="Default rate in the validation fold", title="Default rate along the first three components", xticks=range(1, 11))
+    rates.legend(loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    for ax in (error, rates):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "pca_math.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def kmeans_lloyd_plot():
+    lloyd = pd.read_csv("results/kmeans_lloyd.csv")
+    clusters = pd.read_csv("results/kmeans_clusters.csv").query("fold == 0 and k == 5")
+    summary = pd.read_csv("results/kmeans_summary.csv").query("fold == 0 and k == 5")
+    plus_plus = summary["inertia_per_row"].iloc[0] * clusters["n_fit"].sum()
+    fig, (path, gap) = plt.subplots(1, 2, figsize=(11, 4.6), facecolor=SURFACE)
+    for color, (start, part) in zip(SERIES, lloyd.groupby("start")):
+        path.plot(part["iteration"], part["after_assign"] / 1e6, color=color, linewidth=1.8, label=f"Random start {start}: {part['final'].iloc[0] / 1e6:.2f}")
+        gap.plot(part["iteration"], (part["after_assign"] - part["final"]) / part["final"], color=color, linewidth=1.8)
+    path.axhline(plus_plus / 1e6, color=REFERENCE, linewidth=1.5, linestyle=(0, (4, 3)), label=f"k-means++ start: {plus_plus / 1e6:.2f}")
+    path.set(xlabel="Iteration", ylabel="Objective $J$ (millions)", title="Each iteration lowers the objective", xlim=(1, 40), ylim=(10, 16))
+    path.legend(loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    gap.set_yscale("symlog", linthresh=1e-5)
+    gap.set(xlabel="Iteration", ylabel="Relative gap to the final objective", title="Convergence to different local minima", xlim=(1, 120))
+    for ax in (path, gap):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "kmeans_lloyd.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -526,6 +634,10 @@ def main():
     boosting_demo_plot()
     pca_plot()
     kmeans_plot()
+    knn_distance_plot()
+    svm_margin_plot()
+    pca_math_plot()
+    kmeans_lloyd_plot()
 
 
 if __name__ == "__main__":

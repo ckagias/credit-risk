@@ -512,3 +512,130 @@ The best trial's score is the best of 60, so it is checked on a new split: the d
 - The tuned model beats the default in every one of the 10 fold comparisons on all three metrics (smallest PR-AUC gain 0.0012). The gain is small compared with the spread over folds, but it is paired, and it is 0.003 to 0.004 PR-AUC.
 - The tuned model needs 3 to 4 times as many rounds, because trees of 9 leaves with strong penalties take smaller steps.
 - The holdout is not used yet.
+
+## k nearest neighbours
+
+kNN has no training step. The model keeps the training rows and, for a new applicant $x$, predicts the share of defaulters among the $k$ training applicants closest to $x$:
+
+$$
+\hat p(x) = \frac{1}{k} \sum_{i \in N_k(x)} y_i, \qquad d(x, x')^2 = \sum_{j=1}^{p} (x_j - x'_j)^2
+$$
+
+Here $N_k(x)$ is the set of the $k$ training rows with the smallest distance $d$. The distances are computed on the clipped and standardised columns of the pipeline, so every column has variance 1 and counts equally. `src/knn_math.py` computes them as $\lVert x \rVert^2 - 2\, x \cdot x' + \lVert x' \rVert^2$ and the probabilities as the mean of $y$ over the $k$ nearest rows. Both match the direct sum of squares and scikit-learn's `KNeighborsClassifier` (`tests/test_knn_math.py`).
+
+There is no loss to minimise. The only setting is $k$, which trades variance for bias. $\hat p$ is an average of $k$ labels, so with a base rate of $\pi = 0.081$ its sampling noise is about $\sqrt{\pi (1 - \pi) / k}$: 0.122 for $k = 5$, 0.039 for $k = 50$ and 0.012 for $k = 500$. With $k = 5$ the prediction can only take the values 0, 0.2, 0.4, … and the noise is larger than the base rate itself.
+
+### Distance in many columns
+
+With many columns, the nearest neighbour is hardly nearer than a typical applicant. For 300 validation applicants and 20,000 training rows, taking a random subset of the 70 continuous columns, the table gives the mean distance to the nearest training row, the mean median distance, and the mean of their ratio per applicant (`results/knn_distance.csv`, mean of 5 draws of columns):
+
+| Columns | Nearest | Median | Nearest / median |
+|---:|---:|---:|---:|
+| 1 | 0.0001 | 0.411 | 0.000 |
+| 2 | 0.0048 | 0.738 | 0.004 |
+| 5 | 0.0649 | 1.821 | 0.031 |
+| 10 | 0.3176 | 3.065 | 0.084 |
+| 20 | 0.9578 | 4.678 | 0.189 |
+| 40 | 2.0650 | 6.595 | 0.300 |
+| 70 | 3.6363 | 9.079 | 0.400 |
+
+![Nearest to median distance against the number of columns, and kNN PR-AUC against k](docs/img/knn_distance.png)
+
+- On one column the nearest of 20,000 rows is almost on top of the applicant. On 70 columns it is at 40% of the typical distance. The neighbours stop being much more alike than anyone else, so a small $k$ averages labels of loosely related applicants.
+- PR-AUC at $k = 5$ is 0.0984 on 20,000 training rows and 300 columns, and it rises to 0.1698 at $k = 500$ before falling to 0.1673 at $k = 1500$. The best kNN stays below the logistic regression on the same 20,000 rows (0.2139). On the 3 `EXT_SOURCE` columns the best kNN reaches 0.1915 at $k = 500$, against 0.1995 for the logistic regression.
+- Fitting takes 0.004 s and predicting 49,202 validation applicants takes 3.5 s at $k = 500$. The cost sits at prediction, and it grows with the number of training rows, which is why kNN is run on a subsample.
+
+## Support vector machine
+
+A support vector machine scores an applicant with $f(x)$ and predicts the default class when $f(x) > 0$. With labels $y_i \in \{-1, +1\}$, the soft-margin problem is
+
+$$
+\min_{w, b} \; \tfrac12 \lVert w \rVert^2 + C \sum_{i=1}^{n} c_i \max\bigl(0,\, 1 - y_i f(x_i)\bigr), \qquad f(x) = w \cdot \phi(x) + b
+$$
+
+The second term is the hinge loss. It is zero for an applicant on the right side of the line by at least 1 ($y_i f(x_i) \ge 1$) and grows linearly below that, so correctly classified applicants beyond the margin have no say in the solution. The first term makes the margin, the strip $|f| < 1$ of width $2 / \lVert w \rVert$, as wide as possible. $C$ sets how much a point inside the strip costs against the width. $c_i$ are the class weights: `class_weight="balanced"` gives each class the same total weight, $c_i = n / (2 n_{y_i})$.
+
+The kernel version does not compute $\phi$. The dual problem is
+
+$$
+\max_{\alpha} \; \sum_i \alpha_i - \tfrac12 \sum_{i,j} \alpha_i \alpha_j\, y_i y_j\, K(x_i, x_j), \qquad 0 \le \alpha_i \le C c_i, \quad \sum_i \alpha_i y_i = 0
+$$
+
+and the score is $f(x) = \sum_i \alpha_i y_i K(x_i, x) + b$, where only the support vectors ($\alpha_i > 0$) enter. The kernel is the RBF, $K(x, x') = \exp(-\gamma \lVert x - x' \rVert^2)$, with $\gamma = 0.1 / (p \cdot \mathrm{Var}(Z))$ as chosen in the sweep. $\lVert w \rVert^2 = \sum_{i,j} \alpha_i \alpha_j y_i y_j K(x_i, x_j)$ is computed from the dual coefficients.
+
+`src/svm_math.py` checks three things on fold 0 with a 5,000-row subsample (`tests/test_svm_math.py`): the score from the kernel sum over the support vectors equals scikit-learn's `decision_function`, the primal and dual objectives agree at the optimum, and the hinge loss is 0, 0.5, 1 and 2 at the margins 1, 0.5, 0 and -1. The SVM gives a score, not a probability, so the probabilities used in the project come from a sigmoid fitted on top (Platt scaling, 3 folds).
+
+| $C$ | Support vectors | At the upper bound ($\alpha_i = C c_i$) | Margin width | Primal | Dual | Training hinge | Validation hinge | Validation ROC-AUC |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.1 | 4,812 (96.2%) | 95.9% | 0.2468 | 447.551 | 447.550 | 0.829 | 0.846 | 0.6733 |
+| 1 | 4,001 (80.0%) | 78.3% | 0.0834 | 3672.24 | 3672.23 | 0.677 | 0.762 | 0.7217 |
+| 10 | 3,472 (69.4%) | 65.1% | 0.0252 | 30537.4 | 30536.9 | 0.548 | 0.775 | 0.7127 |
+
+![Hinge loss against log loss with the validation margins, and support vectors against C](docs/img/svm_margin.png)
+
+- The hinge loss and the log loss of logistic regression have nearly the same shape for margins below 0, with the log loss written in bits so both equal 1 at a margin of 0. The difference is on the right: the log loss never reaches 0, so every applicant keeps pulling on the logistic regression, while the hinge loss ignores applicants beyond the margin.
+- On this data almost every applicant is inside the margin. Of the 5,000 training rows 80% are support vectors at $C = 1$, and 78% of the rows sit at the upper bound, which means they are inside the strip or misclassified. The validation scores $f(x)$ are mostly between -1 and 1 (non-defaulters mean -0.384, defaulters mean 0.196), so the classes overlap and the margin is not a clean gap.
+- A larger $C$ narrows the margin (0.2468, 0.0834, 0.0252) and lowers the training hinge loss (0.829, 0.677, 0.548), but the validation hinge loss is lowest at $C = 1$ (0.762) and rises at $C = 10$ (0.775). The best validation ROC-AUC is also at $C = 1$.
+- The primal and dual values agree to 4 significant digits or better at every $C$ (the largest gap is 0.5 out of 30,537), which confirms the optimiser reached the optimum.
+- With the full SVM, 20,000 rows took 84.7 s to fit and 97.5 s to predict the validation fold, against 2.1 s and 0.01 s for the logistic regression, at PR-AUC 0.2123 against 0.2139.
+
+## PCA
+
+Let $Z$ be the $n \times p$ matrix of the 70 continuous application columns, clipped, standardised and then centred on the training fold. PCA is the eigen-decomposition of their covariance matrix:
+
+$$
+\Sigma = \frac{1}{n - 1} Z^\top Z = V \Lambda V^\top, \qquad \Lambda = \mathrm{diag}(\lambda_1 \ge \dots \ge \lambda_p), \quad V^\top V = I
+$$
+
+The columns of $V$ are the components and $\lambda_j$ is the variance of the scores $ZV$ along component $j$. The scores are uncorrelated and the share of the variance held by component $j$ is $\lambda_j / \sum_l \lambda_l$. For standardised columns the total variance is $p = 70$. Keeping the first $k$ components gives the reconstruction $\hat Z_k = Z V_k V_k^\top$. Among all rank-$k$ approximations it has the smallest squared error (the Eckart-Young theorem), and the error is the variance that was discarded:
+
+$$
+\frac1n \sum_i \lVert z_i - \hat z_{i,k} \rVert^2 = \frac{n-1}{n} \sum_{j > k} \lambda_j
+$$
+
+`src/pca_math.py` computes the eigenvalues with `numpy.linalg.eigh` and measures the reconstruction error directly. The eigenvalues equal scikit-learn's `explained_variance_`, the eigenvectors are orthonormal, and on the training rows the measured error equals the sum of the discarded eigenvalues (`tests/test_pca_math.py`).
+
+| Components kept | Training error | Validation error | Share of variance kept |
+|---:|---:|---:|---:|
+| 0 | 70.000 | 70.174 | 0.0% |
+| 1 | 51.753 | 51.696 | 26.1% |
+| 18 | 13.910 | 13.972 | 80.1% |
+| 30 | 3.375 | 3.454 | 95.2% |
+| 38 | 0.572 | 0.597 | 99.2% |
+
+![Reconstruction error against the number of components, and default rate by decile of the first three components](docs/img/pca_math.png)
+
+- The error computed on the validation fold follows the discarded eigenvalues of the training fold. It is slightly higher (3.454 against 3.375 at 30 components), because the components were fitted on the training rows.
+- Ordering by variance is not ordering by relation to default. In the validation fold the default rate runs from 9.8% in the lowest decile of component 1 to 5.2% in the highest, but not monotonically (12.5% in decile 3). For component 2 it rises from 5.3% to 10.8% in decile 9 and then drops to 7.5% in decile 10. Component 3, which holds less variance, runs from 11.9% to 5.1%, a spread as large as the first two.
+- Keeping the components with the most variance does not keep the signal: logistic regression on the first 30 components, which keep 95% of the variance, has PR-AUC 0.1988 against 0.2061 on the 70 columns, and LightGBM 0.2010 against 0.2303. The charts of the scree plot and of the models on components are in `docs/img/pca.png`.
+
+## k-means
+
+k-means partitions the rows into $k$ clusters with centroids $\mu_1, \dots, \mu_k$ and minimises the within-cluster sum of squares (the inertia):
+
+$$
+J(c, \mu) = \sum_{i=1}^{n} \lVert x_i - \mu_{c(i)} \rVert^2, \qquad c(i) \in \{1, \dots, k\}
+$$
+
+Lloyd's algorithm alternates two steps, each of which can only lower $J$:
+
+1. Assign: $c(i) = \arg\min_m \lVert x_i - \mu_m \rVert^2$. With the centroids fixed, this is the cluster that minimises each term.
+2. Update: $\mu_m = \frac{1}{|C_m|} \sum_{i \in C_m} x_i$. With the assignment fixed, the mean is the point that minimises the sum of squared distances to the cluster's rows.
+
+$J$ is bounded below by 0 and there are finitely many assignments, so the loop ends when no row changes cluster. It stops at a local minimum, not necessarily the best one, so the result depends on the start. scikit-learn's default start is k-means++ and `n_init` restarts keep the best.
+
+`src/kmeans_math.py` runs the two steps by hand on the 70 continuous columns of the 196,806 training rows of fold 0 with $k = 5$, from 5 random starts (5 rows picked at random as the first centroids). In every iteration $J$ after the assign step is no higher than after the previous update step, and $J$ after the update step is no higher than after the assign step (`tests/test_kmeans_math.py`). Run from the same start, scikit-learn's Lloyd loop ends at the same $J$ (relative difference at most $3 \times 10^{-6}$).
+
+| Start | Iterations | $J$ after the first assignment | $J$ at the end | scikit-learn from the same start |
+|---:|---:|---:|---:|---:|
+| 0 | 70 | 14.55 million | 10.167 million | 10.167 million |
+| 1 | 116 | 13.46 million | 10.239 million | 10.239 million |
+| 2 | 45 | 14.25 million | 10.176 million | 10.176 million |
+| 3 | 53 | 15.51 million | 10.359 million | 10.359 million |
+| 4 | 62 | 13.27 million | 10.564 million | 10.564 million |
+
+![Objective against iteration for 5 random starts, and its relative gap to the final value](docs/img/kmeans_lloyd.png)
+
+- Most of the fall comes at the start. After the first update $J$ is 1.7% to 13.5% above its final value, after 5 iterations 0.1% to 3.1%, and after 20 iterations at most 0.05%. The remaining iterations of the 45 to 116 only move the few rows near a boundary between two clusters.
+- The five starts end at five different values, from 10.167 to 10.564 million (a spread of 3.9%), so these are different local minima. The k-means++ start of the main k-means step reaches 10.151 million in this fold, lower than all five random starts.
+- Per row, $J$ is 70 for $k = 1$ (the 70 standardised columns) and, as the mean over the 5 training folds, 58.3, 54.9, 51.1, 45.6, 41.6 and 36.8 for $k = 2, 3, 5, 8, 12, 20$. At $k = 5$ the clusters explain 27.0% of the total variance and at $k = 20$ 47.4%, so most of the variance stays inside the clusters. The silhouette scores (0.49 at $k = 2$, 0.13 at $k = 5$) and the default rates per cluster are in the k-means section of `README.md` and in `docs/img/kmeans.png`.

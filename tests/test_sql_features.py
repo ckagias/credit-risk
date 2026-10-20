@@ -401,6 +401,73 @@ def test_credit_card_zero_limit_gives_missing_utilization_and_no_card_gives_zero
     assert features.row_count_problems(card_db, "credit_card") == []
 
 
+def applicant(sk, income, credit, annuity, goods, birth, employed, family, children, e1, e2, e3):
+    return {
+        "SK_ID_CURR": sk,
+        "AMT_INCOME_TOTAL": income,
+        "AMT_CREDIT": credit,
+        "AMT_ANNUITY": annuity,
+        "AMT_GOODS_PRICE": goods,
+        "DAYS_BIRTH": birth,
+        "DAYS_EMPLOYED": employed,
+        "CNT_FAM_MEMBERS": family,
+        "CNT_CHILDREN": children,
+        "EXT_SOURCE_1": e1,
+        "EXT_SOURCE_2": e2,
+        "EXT_SOURCE_3": e3,
+    }
+
+
+@pytest.fixture
+def application_db():
+    return toy_connection(
+        application_train=[
+            applicant(1, 100000, 500000, 25000, 450000, -14610, -3652.5, 4, 2, 0.5, 0.6, None),
+            applicant(2, 0, 300000, 15000, 300000, -23376, 365243, 1, 0, None, None, None),
+            applicant(3, 80000, 200000, None, 180000, -10957.5, -365.25, 2, 1, 0.9, None, 0.1),
+        ]
+    )
+
+
+def test_application_ratios_for_a_regular_applicant(application_db):
+    row = built(application_db, "application").loc[1]
+    assert row["app_credit_to_income"] == pytest.approx(5.0)
+    assert row["app_annuity_to_income"] == pytest.approx(0.25)
+    assert row["app_credit_term"] == pytest.approx(20.0)
+    assert row["app_credit_to_goods"] == pytest.approx(500000 / 450000)
+    assert row["app_income_per_person"] == pytest.approx(25000)
+    assert row["app_children_share"] == pytest.approx(0.5)
+
+
+def test_application_age_and_employment_use_years_and_the_age_at_the_start_of_the_job(application_db):
+    row = built(application_db, "application").loc[1]
+    assert row["app_age_years"] == pytest.approx(40.0)
+    assert row["app_years_employed"] == pytest.approx(10.0)
+    assert row["app_employed_to_age"] == pytest.approx(0.25)
+    assert row["app_age_at_job_start"] == pytest.approx(30.0)
+
+
+def test_application_the_employment_placeholder_becomes_missing_in_every_derived_column(application_db):
+    row = built(application_db, "application").loc[2]
+    assert pd.isna(row["app_years_employed"]) and pd.isna(row["app_employed_to_age"]) and pd.isna(row["app_age_at_job_start"])
+    assert row["app_age_years"] == pytest.approx(23376 / 365.25)
+
+
+def test_application_zero_income_or_missing_annuity_gives_missing_ratios(application_db):
+    table = built(application_db, "application")
+    assert pd.isna(table.loc[2, "app_credit_to_income"]) and pd.isna(table.loc[2, "app_annuity_to_income"])
+    assert pd.isna(table.loc[3, "app_credit_term"]) and pd.isna(table.loc[3, "app_annuity_to_income"])
+
+
+def test_application_ext_source_summary_skips_missing_scores(application_db):
+    table = built(application_db, "application")
+    assert (table.loc[1, "app_ext_n_known"], table.loc[1, "app_ext_mean"], table.loc[1, "app_ext_min"], table.loc[1, "app_ext_max"]) == (2, pytest.approx(0.55), 0.5, 0.6)
+    assert (table.loc[3, "app_ext_mean"], table.loc[3, "app_ext_min"], table.loc[3, "app_ext_max"]) == (pytest.approx(0.5), 0.1, 0.9)
+    assert table.loc[2, "app_ext_n_known"] == 0
+    assert pd.isna(table.loc[2, "app_ext_mean"]) and pd.isna(table.loc[2, "app_ext_min"]) and pd.isna(table.loc[2, "app_ext_max"])
+    assert features.row_count_problems(application_db, "application") == []
+
+
 def test_load_features_adds_the_group_columns_and_keeps_rows_and_targets_in_order(bureau_db):
     import preprocess
 

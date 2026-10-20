@@ -650,6 +650,47 @@ def imbalance_plot():
     plt.close(fig)
 
 
+def calibration_plot():
+    curve = pd.read_csv("results/calibration_curve.csv")
+    table = pd.read_csv("results/calibration.csv")
+    names = {"logistic": "Logistic regression", "lightgbm": "LightGBM", "lightgbm_weighted": "LightGBM, balanced class weights", "forest": "Random forest"}
+    calibrators = {"none": "Not calibrated", "platt": "Platt scaling", "isotonic": "Isotonic regression"}
+    colors = dict(zip(calibrators, (REFERENCE, SERIES[0], SERIES[1])))
+    fig = plt.figure(figsize=(15, 8.6), facecolor=SURFACE)
+    grid = fig.add_gridspec(2, 4, height_ratios=[1.15, 1])
+    for column, model in enumerate(names):
+        ax = fig.add_subplot(grid[0, column])
+        ax.plot([0.01, 1], [0.01, 1], color=INK_SECONDARY, linewidth=1, linestyle=(0, (4, 3)))
+        for calibrator in calibrators:
+            part = curve[(curve["model"] == model) & (curve["calibrator"] == calibrator)]
+            ax.plot(part["mean_predicted"], part["observed"], color=colors[calibrator], linewidth=1.8, marker="o", markersize=5, markeredgecolor=SURFACE, markeredgewidth=1, label=calibrators[calibrator])
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set(xlim=(0.01, 1), ylim=(0.01, 1), xlabel="Mean predicted probability (10 equal-count bins)", title=names[model])
+        if column == 0:
+            ax.set_ylabel("Observed default rate")
+            ax.legend(loc="lower right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+        style_axis(ax)
+    mean = table.groupby(["model", "calibrator"])[["ece", "pr_auc"]].mean()
+    ece = fig.add_subplot(grid[1, :2])
+    pr = fig.add_subplot(grid[1, 2:])
+    width = 0.26
+    for offset, calibrator in zip((-width, 0, width), calibrators):
+        positions = np.arange(len(names)) + offset
+        ece.plot(positions, [mean.loc[(m, calibrator), "ece"] for m in names], color=colors[calibrator], linewidth=0, marker="o", markersize=9, markeredgecolor=SURFACE, markeredgewidth=1.5, label=calibrators[calibrator])
+        pr.plot(positions, [mean.loc[(m, calibrator), "pr_auc"] for m in names], color=colors[calibrator], linewidth=0, marker="o", markersize=9, markeredgecolor=SURFACE, markeredgewidth=1.5)
+    ece.set_yscale("log")
+    ece.set(ylabel="Expected calibration error (log scale)", title="Calibration error", xticks=range(len(names)), xticklabels=[n.replace(", balanced class weights", "\nwith class weights") for n in names.values()])
+    pr.set(ylim=(0.21, 0.24), ylabel="Mean validation PR-AUC (5 folds)", title="Ranking", xticks=range(len(names)), xticklabels=[n.replace(", balanced class weights", "\nwith class weights") for n in names.values()])
+    ece.legend(loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    for ax in (ece, pr):
+        style_axis(ax)
+        ax.grid(False, axis="x")
+    fig.tight_layout()
+    fig.savefig(OUT / "calibration.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -673,6 +714,7 @@ def main():
     pca_math_plot()
     kmeans_lloyd_plot()
     imbalance_plot()
+    calibration_plot()
 
 
 if __name__ == "__main__":

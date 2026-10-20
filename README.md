@@ -98,3 +98,26 @@ The clusters do differ in default rate: at k = 5 the lowest and highest validati
 | LightGBM | SMOTE | 0.2355 | -0.0031 (1 of 5) | 0.2475 | 0.3594 | 0.085 |
 
 No method improves PR-AUC or ROC-AUC beyond fold-to-fold noise: the largest gain is +0.0007 (std 0.0031), and seven of the eight changes are zero or negative. Class weights and resampling raise the average predicted probability from 0.08 to about 0.40, put about a third of the applicants above 0.5 (0.2% when doing nothing) and more than double the log loss (from 0.25 to between 0.56 and 0.60). Multiplying the odds by the known factor (the true ratio of defaults to repaid loans, 0.088) gives the log loss back to within 0.0013 of doing nothing for every method except SMOTE on logistic regression (0.0031 higher). LightGBM on SMOTE rows is the exception: 99.8% of the synthetic rows have a non-0/1 value in one of the 230 binary columns, which no real applicant has, and its probabilities stay near the base rate (0.085), so the correction does not apply (0.3594). Undersampling is also the fastest for LightGBM (1.4 s against 4.8 s) and the weakest on PR-AUC. Results in `results/imbalance.csv`.
+
+## Calibration
+
+`src/calibration.py` fits each model on 80% of every training fold, fits a calibrator on the other 20%, and scores the validation fold. Platt scaling is a logistic regression on the log-odds of the predicted probability. Isotonic regression is a non-decreasing step function. The calibration curve pools the 5 validation folds into 10 equal-count groups. Chart in `docs/img/calibration.png`.
+
+![Calibration curves before and after calibration, calibration error and PR-AUC](docs/img/calibration.png)
+
+| Model | Calibrator | Log loss | Brier | ECE | PR-AUC | Mean probability |
+|---|---|---:|---:|---:|---:|---:|
+| Logistic | none | 0.2496 | 0.0686 | 0.0025 | 0.2246 | 0.0808 |
+| Logistic | Platt | 0.2496 | 0.0686 | 0.0026 | 0.2246 | 0.0805 |
+| Logistic | isotonic | 0.2512 | 0.0687 | 0.0031 | 0.2175 | 0.0806 |
+| LightGBM | none | 0.2477 | 0.0682 | 0.0035 | 0.2357 | 0.0802 |
+| LightGBM | Platt | 0.2476 | 0.0682 | 0.0032 | 0.2357 | 0.0805 |
+| LightGBM | isotonic | 0.2491 | 0.0682 | 0.0029 | 0.2278 | 0.0805 |
+| LightGBM, class weights | none | 0.5584 | 0.1901 | 0.3205 | 0.2363 | 0.4013 |
+| LightGBM, class weights | Platt | 0.2475 | 0.0682 | 0.0038 | 0.2363 | 0.0806 |
+| LightGBM, class weights | isotonic | 0.2488 | 0.0682 | 0.0040 | 0.2269 | 0.0805 |
+| Forest | none | 0.2518 | 0.0691 | 0.0129 | 0.2256 | 0.0812 |
+| Forest | Platt | 0.2501 | 0.0687 | 0.0027 | 0.2256 | 0.0806 |
+| Forest | isotonic | 0.2517 | 0.0687 | 0.0039 | 0.2177 | 0.0807 |
+
+Logistic regression and LightGBM trained on log loss are already calibrated, and neither calibrator improves them (the log loss changes by at most 0.0001 with Platt scaling). The random forest, with 200 trees, 30 columns per split and `min_samples_leaf` = 30, is too high for low-risk applicants and too low for the highest decile (0.209 predicted against 0.256 observed), and Platt scaling brings its ECE from 0.0129 to 0.0027 and its log loss from 0.2518 to 0.2501 (lower in 5 of 5 folds). LightGBM with balanced class weights keeps its ranking and its log loss goes from 0.5584 to 0.2475 with Platt scaling. Platt scaling keeps the order of the applicants, so it never changes PR-AUC or ROC-AUC. Isotonic regression reaches a similar calibration but lowers PR-AUC by 0.0070 to 0.0094 in every fold, because the steps make many applicants tie. Results in `results/calibration.csv` and `results/calibration_curve.csv`.

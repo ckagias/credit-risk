@@ -616,6 +616,40 @@ def kmeans_lloyd_plot():
     plt.close(fig)
 
 
+def imbalance_plot():
+    table = pd.read_csv("results/imbalance.csv")
+    names = {"logistic": "Logistic regression", "lightgbm": "LightGBM"}
+    labels = {"none": "Nothing", "class_weight": "Class weights", "undersample": "Undersample", "oversample": "Oversample", "smote": "SMOTE"}
+    methods = list(labels)
+    fig, (gain, loss) = plt.subplots(1, 2, figsize=(12, 4.8), facecolor=SURFACE)
+    wide = table.pivot_table(index=["model", "fold"], columns="method", values="pr_auc")
+    for offset, color, model in zip((-0.15, 0.15), SERIES, names):
+        diff = wide.loc[model].sub(wide.loc[model]["none"], axis=0)[methods[1:]]
+        for x, method in enumerate(methods[1:]):
+            gain.scatter(np.full(len(diff), x + offset) + np.linspace(-0.04, 0.04, len(diff)), diff[method], s=14, color=color, alpha=0.45, zorder=3)
+        gain.plot(np.arange(len(methods) - 1) + offset, diff.mean(), color=color, linewidth=0, marker="o", markersize=8, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=4, label=names[model])
+    gain.axhline(0, color=REFERENCE, linewidth=1.5)
+    gain.set_xticks(range(len(methods) - 1))
+    gain.set_xticklabels([labels[m] for m in methods[1:]])
+    gain.set(ylabel="PR-AUC minus PR-AUC of doing nothing, same fold", title="No method clearly beats doing nothing")
+    gain.legend(loc="lower left", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)
+    for offset, color, model in zip((-0.15, 0.15), SERIES, names):
+        part = table[table["model"] == model].groupby("method")[["log_loss", "log_loss_corrected"]].mean().loc[methods]
+        x = np.arange(len(methods)) + offset
+        loss.plot(x, part["log_loss"], color=color, linewidth=0, marker="o", markersize=8, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=4, label=f"{names[model]}, as predicted")
+        loss.plot(x, part["log_loss_corrected"], color=color, linewidth=0, marker="D", markersize=7, markerfacecolor=SURFACE, markeredgecolor=color, markeredgewidth=1.8, zorder=4, label=f"{names[model]}, after undoing the odds shift")
+    loss.set_xticks(range(len(methods)))
+    loss.set_xticklabels([labels[m] for m in methods])
+    loss.set(ylabel="Mean validation log loss", title="Reweighting wrecks the probabilities", ylim=(0.2, 0.8))
+    loss.annotate("LightGBM was not shifted here,\nso the correction overshoots", (4.15, 0.36), xytext=(-8, 8), textcoords="offset points", ha="right", fontsize=8.5, color=INK_SECONDARY)
+    loss.legend(loc="upper left", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY, ncol=1)
+    for ax in (gain, loss):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "imbalance.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -638,6 +672,7 @@ def main():
     svm_margin_plot()
     pca_math_plot()
     kmeans_lloyd_plot()
+    imbalance_plot()
 
 
 if __name__ == "__main__":

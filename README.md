@@ -77,3 +77,24 @@ The first component holds 26.0% of the variance and loads on the `_AVG`, `_MEDI`
 ![k-means: inertia and silhouette, default rate per cluster, cluster rate as a risk score](docs/img/kmeans.png)
 
 The clusters do differ in default rate: at k = 5 the lowest and highest validation rates average 5.1% and 9.8% over the folds against 8.1% overall (chi-square p below 0.0001 at every k), and the gap widens with k, from 5.6% and 8.3% at k = 2 to 3.9% and 13.0% at k = 20. The applicants have no natural groups: the silhouette score is 0.49 at k = 2, where a small group of outliers splits off, 0.13 at k = 5 and 0.05 at k = 20, and inertia has no elbow. At k = 5 the clusters are described by loan size, by how much housing data the applicant has and by one cluster of 533 applicants with a bad `YEARS_BEGINEXPLUATATION` value. The cluster's default rate as a risk score gives ROC-AUC 0.549 at k = 5 and 0.607 at k = 20, against 0.5 for no ranking. Results in `results/kmeans_summary.csv`, `results/kmeans_clusters.csv` and `results/kmeans_profile.csv`.
+
+## Class imbalance
+
+`src/imbalance.py` compares doing nothing with balanced class weights, random undersampling, random oversampling and SMOTE (`imbalanced-learn`) for logistic regression and LightGBM (learning rate 0.05, defaults, early stopping on PR-AUC of a 10% part cut off before resampling). Resampling is applied to the training part of each fold only. Chart in `docs/img/imbalance.png`.
+
+![PR-AUC difference from doing nothing, and log loss before and after undoing the odds shift](docs/img/imbalance.png)
+
+| Model | Method | PR-AUC | Difference from nothing (folds better) | Log loss | Log loss after the odds correction | Mean probability |
+|---|---|---:|---:|---:|---:|---:|
+| Logistic | nothing | 0.2250 | | 0.2495 | 0.2495 | 0.081 |
+| Logistic | class weights | 0.2231 | -0.0019 (0 of 5) | 0.5919 | 0.2496 | 0.420 |
+| Logistic | undersample | 0.2213 | -0.0037 (0 of 5) | 0.5951 | 0.2501 | 0.423 |
+| Logistic | oversample | 0.2226 | -0.0024 (0 of 5) | 0.5918 | 0.2497 | 0.420 |
+| Logistic | SMOTE | 0.2197 | -0.0053 (0 of 5) | 0.5809 | 0.2526 | 0.402 |
+| LightGBM | nothing | 0.2386 | | 0.2470 | 0.2470 | 0.080 |
+| LightGBM | class weights | 0.2386 | -0.0000 (3 of 5) | 0.5584 | 0.2475 | 0.401 |
+| LightGBM | undersample | 0.2308 | -0.0078 (0 of 5) | 0.5902 | 0.2483 | 0.422 |
+| LightGBM | oversample | 0.2393 | +0.0007 (3 of 5) | 0.5581 | 0.2474 | 0.401 |
+| LightGBM | SMOTE | 0.2355 | -0.0031 (1 of 5) | 0.2475 | 0.3594 | 0.085 |
+
+No method improves PR-AUC or ROC-AUC beyond fold-to-fold noise: the largest gain is +0.0007 (std 0.0031), and seven of the eight changes are zero or negative. Class weights and resampling raise the average predicted probability from 0.08 to about 0.40, put about a third of the applicants above 0.5 (0.2% when doing nothing) and more than double the log loss (from 0.25 to between 0.56 and 0.60). Multiplying the odds by the known factor (the true ratio of defaults to repaid loans, 0.088) gives the log loss back to within 0.0013 of doing nothing for every method except SMOTE on logistic regression (0.0031 higher). LightGBM on SMOTE rows is the exception: 99.8% of the synthetic rows have a non-0/1 value in one of the 230 binary columns, which no real applicant has, and its probabilities stay near the base rate (0.085), so the correction does not apply (0.3594). Undersampling is also the fastest for LightGBM (1.4 s against 4.8 s) and the weakest on PR-AUC. Results in `results/imbalance.csv`.

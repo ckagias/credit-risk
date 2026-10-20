@@ -9,3 +9,4 @@ optuna==5.0.0
 mlflow==3.17.1
 fastapi==0.143.5
 pytest==9.1.1
+imbalanced-learn==0.14.2

@@ -2,7 +2,7 @@
 
 Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, and the SQL features are done.
+Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, and kNN and SVM are done.
 
 ## Data
 
@@ -36,3 +36,16 @@ Home Credit Default Risk, downloaded from Kaggle into `data/raw/` (not tracked).
 Base PR-AUC is 0.2385 for LightGBM and 0.2250 for logistic regression. With all six groups it is 0.2756 and 0.2606, and 0.2813 for LightGBM with the tuned parameters. Every group improves PR-AUC in all 5 folds.
 
 Build the tables from the project root with `PYTHONPATH=src python src/features.py`. SQLite needs a large page cache for the 10 and 13.6 million row tables (set in `build_all`): the POS_CASH build took 72 s with it and did not finish in 55 minutes without it.
+
+## kNN and SVM
+
+`src/knn_svm.py` fits kNN, an RBF SVM and logistic regression on stratified subsamples of each training fold (2,000 to 20,000 rows of about 197,000) and scores them on the whole validation fold, base application columns only. PR-AUC, mean of 5 folds:
+
+| Training rows | kNN (k = 500) | SVM (balanced weights) | Logistic | SVM fit time | Logistic fit time |
+|---:|---:|---:|---:|---:|---:|
+| 2,000 | 0.1321 | 0.1779 | 0.1706 | 0.7 s | 0.5 s |
+| 5,000 | 0.1501 | 0.1978 | 0.1951 | 5.1 s | 1.1 s |
+| 10,000 | 0.1593 | 0.2069 | 0.2061 | 20.4 s | 1.4 s |
+| 20,000 | 0.1698 | 0.2123 | 0.2139 | 84.7 s | 2.1 s |
+
+kNN is behind logistic regression in every fold at every size. The SVM is level with logistic regression from 5,000 rows up, with a fit time that grows 119 times for 10 times the rows. Without class weights the SVM scores 0.114 at 5,000 rows. kNN on only the three `EXT_SOURCE` columns scores 0.1915 against 0.1698 on all columns. Results in `results/knn_svm.csv` and `results/knn_ext.csv`.

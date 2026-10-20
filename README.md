@@ -121,3 +121,26 @@ No method improves PR-AUC or ROC-AUC beyond fold-to-fold noise: the largest gain
 | Forest | isotonic | 0.2517 | 0.0687 | 0.0039 | 0.2177 | 0.0807 |
 
 Logistic regression and LightGBM trained on log loss are already calibrated, and neither calibrator improves them (the log loss changes by at most 0.0001 with Platt scaling). The random forest, with 200 trees, 30 columns per split and `min_samples_leaf` = 30, is too high for low-risk applicants and too low for the highest decile (0.209 predicted against 0.256 observed), and Platt scaling brings its ECE from 0.0129 to 0.0027 and its log loss from 0.2518 to 0.2501 (lower in 5 of 5 folds). LightGBM with balanced class weights keeps its ranking and its log loss goes from 0.5584 to 0.2475 with Platt scaling. Platt scaling keeps the order of the applicants, so it never changes PR-AUC or ROC-AUC. Isotonic regression reaches a similar calibration but lowers PR-AUC by 0.0070 to 0.0094 in every fold, because the steps make many applicants tie. Results in `results/calibration.csv` and `results/calibration_curve.csv`.
+
+## Decision threshold
+
+`src/threshold.py` turns the probabilities into refuse or accept from an assumed cost: a missed default costs `r` times a refused good loan, with `r` = 10 as the working assumption (a default loses most of the loan, a refused good loan loses its margin) and 2, 5 and 20 for sensitivity. For calibrated probabilities the lowest expected cost is at the threshold $1 / (1 + r)$ (0.0909 for `r` = 10). Each fold's cost is scored with the threshold chosen on the other 4 folds (`cv_tuned`, the lowest cost on a grid of 0.005 steps) and with the fixed rules. LightGBM at its defaults, learning rate 0.05, trained on 80% of each training fold (the rest is the calibration part). Chart in `docs/img/threshold.png`.
+
+![Cost against threshold for four cost ratios, and for LightGBM with and without calibration](docs/img/threshold.png)
+
+Cost per 1,000 applicants in units of one refused good loan, `r` = 10, mean of 5 folds:
+
+| Rule | Threshold | Cost | Applicants refused | Defaulters caught |
+|---|---:|---:|---:|---:|
+| Refuse nobody | | 807.3 | 0% | 0% |
+| Fixed 0.5 | 0.5 | 796.4 | 0.2% | 1.5% |
+| Threshold that maximises F1 | 0.143 | 577.3 | 14.9% | 42.7% |
+| Fixed 0.1 | 0.1 | 538.9 | 25.2% | 58.6% |
+| Tuned on the other 4 folds | 0.090 | 535.2 | 28.7% | 62.9% |
+| 1 / (1 + r) | 0.0909 | 535.4 | 28.3% | 62.5% |
+
+- The formula and the tuned threshold have the same cost: the fold-by-fold difference is -0.13 (std 0.53) per 1,000 applicants, and the formula needs no tuning. The best threshold rises as the cost ratio falls, 0.335, 0.16, 0.09 and 0.05 for `r` = 2, 5, 10 and 20, and with `r` = 2 the cost is almost the same for every rule (157 against 161 for refusing nobody), so the model hardly helps.
+- The threshold that maximises F1 costs 8% more than the formula (577.3 against 535.4, higher in 5 of 5 folds) and refuses half as many applicants, and fixed 0.5 saves only 1.3% over refusing nobody (796.4 against 807.3).
+- The cost ratio is an assumption and the threshold depends on it. A threshold chosen for `r` = 10 costs 88.1% more than the best one if the true ratio is 2, 12.2% more if it is 5 and 15.5% more if it is 20. Choosing for 5 when the truth is 10 costs 11.2% more, and for 20 when the truth is 10, 10.2% more.
+- The formula needs calibrated probabilities. For LightGBM with balanced class weights the lowest cost is at 0.535 (534.7), the odds shift of 11.4 times applied to 0.0909, and the formula's 0.0909 refuses 97.3% of the applicants at a cost of 894.6. After Platt scaling the formula works again (535.9).
+- Costs are per applicant and equal for all loans. Weighting by loan size, a different cost ratio per loan, or the holdout, are not used here. Results in `results/threshold_folds.csv` and `results/threshold_curve.csv`.

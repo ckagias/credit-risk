@@ -691,6 +691,40 @@ def calibration_plot():
     plt.close(fig)
 
 
+def threshold_plot():
+    curve = pd.read_csv("results/threshold_curve.csv")
+    rules = pd.read_csv("results/threshold_folds.csv")
+    main = int(rules["ratio"].max() // 2)
+    fig, (ratios, scorings) = plt.subplots(1, 2, figsize=(12, 4.8), facecolor=SURFACE)
+    part = curve[curve["scoring"] == "lightgbm"]
+    for color, (ratio, group) in zip(SERIES, part.groupby("ratio")):
+        ratios.plot(group["threshold"], group["cost_per_1000"], color=color, linewidth=2, label=f"Missed default costs {ratio} times a refused good loan")
+        best = group.loc[group["cost_per_1000"].idxmin()]
+        ratios.plot([1 / (1 + ratio)], [group.loc[(group["threshold"] - 1 / (1 + ratio)).abs().idxmin(), "cost_per_1000"]], color=color, linewidth=0, marker="D", markersize=8, markerfacecolor=SURFACE, markeredgecolor=color, markeredgewidth=2, zorder=4)
+        ratios.plot([best["threshold"]], [best["cost_per_1000"]], color=color, linewidth=0, marker="o", markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=5)
+    ratios.set_xscale("log")
+    ratios.set(xlim=(0.01, 1), xlabel="Threshold: refuse the loan when the predicted probability is at least this", ylabel="Cost per 1,000 applicants (refused good loans = 1)", title="Calibrated LightGBM, best threshold 1 / (1 + ratio)")
+    ratios.text(0.02, 0.04, "diamond: 1 / (1 + ratio)   dot: lowest cost on the grid", transform=ratios.transAxes, fontsize=8.5, color=INK_SECONDARY)
+    ratios.legend(loc="upper left", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    names = {"lightgbm": "LightGBM", "lightgbm_weighted": "LightGBM with class weights, not calibrated", "lightgbm_weighted_platt": "LightGBM with class weights, Platt scaling"}
+    for color, (scoring, label) in zip(SERIES, names.items()):
+        group = curve[(curve["scoring"] == scoring) & (curve["ratio"] == main)]
+        scorings.plot(group["threshold"], group["cost_per_1000"], color=color, linewidth=2, label=label)
+        best = group.loc[group["cost_per_1000"].idxmin()]
+        scorings.plot([best["threshold"]], [best["cost_per_1000"]], color=color, linewidth=0, marker="o", markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=5)
+    scorings.axvline(1 / (1 + main), color=REFERENCE, linewidth=1.5, linestyle=(0, (4, 3)), label=f"1 / (1 + {main}) = {1 / (1 + main):.3f}")
+    scorings.axhline(1000 * main * 0.0807, color=INK_SECONDARY, linewidth=1, linestyle=(0, (2, 3)))
+    scorings.text(0.98, 1000 * main * 0.0807 + 10, "refuse nobody", ha="right", fontsize=8.5, color=INK_SECONDARY, transform=scorings.get_yaxis_transform())
+    scorings.set_xscale("log")
+    scorings.set(xlim=(0.01, 1), xlabel="Threshold", ylabel="Cost per 1,000 applicants", title=f"Missed default costs {main}: calibration moves the best threshold", ylim=(500, 1110))
+    scorings.legend(loc="upper right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    for ax in (ratios, scorings):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "threshold.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -715,6 +749,7 @@ def main():
     kmeans_lloyd_plot()
     imbalance_plot()
     calibration_plot()
+    threshold_plot()
 
 
 if __name__ == "__main__":

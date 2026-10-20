@@ -2,7 +2,7 @@
 
 Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, and kNN and SVM are done.
+Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, and Naive Bayes are done.
 
 ## Data
 
@@ -49,3 +49,15 @@ Build the tables from the project root with `PYTHONPATH=src python src/features.
 | 20,000 | 0.1698 | 0.2123 | 0.2139 | 84.7 s | 2.1 s |
 
 kNN is behind logistic regression in every fold at every size. The SVM is level with logistic regression from 5,000 rows up, with a fit time that grows 119 times for 10 times the rows. Without class weights the SVM scores 0.114 at 5,000 rows. kNN on only the three `EXT_SOURCE` columns scores 0.1915 against 0.1698 on all columns. Results in `results/knn_svm.csv` and `results/knn_ext.csv`.
+
+## Naive Bayes
+
+`src/naive_bayes.py` fits `GaussianNB` on the 246,008 training rows with the same 5 folds. `var_smoothing` is chosen by cross-validation and a sigmoid calibration follows. PR-AUC, mean of 5 folds (base rate 0.0807, one-feature logistic baseline 0.1889):
+
+| Columns | Default `var_smoothing` | Best `var_smoothing`, calibrated |
+|---|---:|---:|
+| all 300 | 0.0830 | 0.1461 |
+| 70 continuous | 0.1431 | 0.1672 |
+| 3 `EXT_SOURCE` | 0.1942 | 0.1971 |
+
+With the defaults Naive Bayes gives 94.7% of applicants a probability above 0.5 (log loss 29.7). Dropping the 0/1 columns, flattening the likelihoods with a larger `var_smoothing` and calibrating repairs the probabilities, and more columns still make the ranking worse. Results in `results/naive_bayes.csv`.

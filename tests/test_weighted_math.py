@@ -61,3 +61,12 @@ def test_platt_scaling_on_shifted_logodds_recovers_a_slope_of_one_and_an_interce
     platt = calibration.Platt().fit(shifted, y).model_
     assert platt.coef_[0, 0] == pytest.approx(1.0, abs=0.04)
     assert platt.intercept_[0] == pytest.approx(-np.log(11.4), abs=0.08)
+
+
+def test_the_mean_shift_is_the_intercept_plus_the_stretch_times_the_mean_log_odds():
+    rng = np.random.default_rng(3)
+    x = rng.normal(-2.5, 0.9, 5000)
+    z = 2.4 + 1.07 * x + rng.normal(0, 0.3, 5000)
+    d = wm.shift_decomposition(x, z)
+    assert d["slope"] == pytest.approx(1.07, abs=0.02)
+    assert d["mean_shift"] == pytest.approx(d["intercept"] + d["stretch_part"])

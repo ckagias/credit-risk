@@ -4,14 +4,21 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import boosting
 import calibration
 import evaluate
+import imbalance
+import tuning
 from forest import prepare_folds
+from knn_svm import make_logistic
 from preprocess import load_features
 from split import DB
 
 SHIFT = Path("results/weighted_shift.csv")
 SAMPLE = Path("results/weighted_shift_sample.csv")
+GAP = Path("results/weighted_gap.csv")
+GAP_ROUNDS = 300
+GAP_LEAVES = [4, 8, 31]
 SEED = 42
 SAMPLE_ROWS = 5000
 
@@ -64,6 +71,52 @@ def shift_row(part):
     return row, sample
 
 
+def shift_decomposition(x, z):
+    slope, intercept = np.polyfit(x, z, 1)
+    return {
+        "slope": float(slope),
+        "intercept": float(intercept),
+        "mean_shift": float(np.mean(z - x)),
+        "mean_log_odds": float(np.mean(x)),
+        "stretch_part": float((slope - 1) * np.mean(x)),
+    }
+
+
+def lightgbm_at_rounds(part, weighted, num_leaves, positive_weight):
+    Z_model, _, y_model, _ = calibration.calibration_split(part)
+    Z_fit, _, y_fit, _ = boosting.stopping_split(Z_model, y_model)
+    params = {**tuning.lightgbm_params({**tuning.DEFAULTS, "num_leaves": num_leaves}), "metric": "None"}
+    if weighted:
+        params["scale_pos_weight"] = positive_weight
+    model = boosting.make_booster(imbalance.LEARNING_RATE, n_estimators=GAP_ROUNDS, **params).fit(Z_fit, y_fit)
+    return calibration.logit(np.clip(model.predict_proba(part["Z_val"])[:, 1], evaluate.EPS, 1 - evaluate.EPS))
+
+
+def gap_rows(part):
+    Z_model, _, y_model, _ = calibration.calibration_split(part)
+    w = float((len(y_model) - y_model.sum()) / y_model.sum())
+    rows = []
+    plain = calibration.fit_model("logistic", Z_model, y_model)
+    weighted = make_logistic().set_params(class_weight="balanced").fit(Z_model, y_model)
+    to_logit = lambda model: calibration.logit(np.clip(model.predict_proba(part["Z_val"])[:, 1], evaluate.EPS, 1 - evaluate.EPS))
+    rows.append({"model": "logistic", "num_leaves": 0, "log_weight": np.log(w), **shift_decomposition(to_logit(plain), to_logit(weighted))})
+    for leaves in GAP_LEAVES:
+        x = lightgbm_at_rounds(part, False, leaves, w)
+        z = lightgbm_at_rounds(part, True, leaves, w)
+        rows.append({"model": "lightgbm", "num_leaves": leaves, "log_weight": np.log(w), **shift_decomposition(x, z)})
+    return pd.DataFrame(rows)
+
+
+def gap_main():
+    con = sqlite3.connect(DB)
+    X, y = load_features(con, "train")
+    con.close()
+    part = prepare_folds(X, y, scale=True, clip=True)[0]
+    table = gap_rows(part)
+    table.to_csv(GAP, index=False, float_format="%.6g")
+    print(table.round(3).to_string())
+
+
 def main():
     con = sqlite3.connect(DB)
     X, y = load_features(con, "train")
@@ -84,4 +137,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    gap_main() if "gap" in sys.argv[1:] else main()

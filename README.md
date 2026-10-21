@@ -169,3 +169,29 @@ Loan-size weighted cost per 1,000 applicants in units of one refused good loan o
 - Single applicants (`docs/img/shap_applicants.png`): the highest score, 0.888 (defaulted), is driven by an `EXT_SOURCE` mean of 0.178 (+0.87 log-odds), overdue bureau debt (+0.52) and a credit card balance at 114% of its limit (+0.49). The lowest score, 0.002, comes from an `EXT_SOURCE` mean of 0.729 (-0.62) and a small annuity (-0.38). The defaulter scored lowest (0.005) has an `EXT_SOURCE` mean of 0.739 (-0.62), and the largest push upward is 0.10. The repaid applicant scored highest (0.787) has an `EXT_SOURCE` mean of 0.129 (+0.98).
 
 ![SHAP values of four single applicants](docs/img/shap_applicants.png)
+
+## Where the model fails
+
+`src/segments.py` scores the tuned LightGBM on the six SQL groups out of fold: each of the 246,008 training applicants is predicted by the model fitted without their fold, so every segment is large (the predictions are kept in `data/oof_best.parquet`, not tracked). Out of fold PR-AUC is 0.2809 and ROC-AUC 0.7891. Errors are counted at the threshold 0.182 from the loan-size cost (45% of the loan lost on a missed default, a 10% margin on a refused good loan): it misses 60.0% of the defaulters (interval 59.3% to 60.7%), refuses 8.4% of the good loans and 11.0% of all applicants, and costs 281.2 per 1,000 applicants against 337.9 for refusing nobody (16.8% less). Intervals are Wilson for the shares and a 200-resample bootstrap for the AUCs. Chart in `docs/img/segments.png`, results in `results/segments.csv`.
+
+![Default rate and predicted probability, ROC-AUC and errors by segment](docs/img/segments.png)
+
+| Segment | Applicants | Default rate | ROC-AUC (95% interval) | Defaulters missed | Good loans refused | Cost saved against refusing nobody |
+|---|---:|---:|---:|---:|---:|---:|
+| All | 246,008 | 8.1% | 0.789 (0.786 to 0.792) | 60.0% | 8.4% | 16.8% |
+| Income 25k to 99k | 50,973 | 8.3% | 0.790 (0.783 to 0.798) | 58.0% | 8.7% | 21.4% |
+| Income 225k and over | 37,630 | 6.5% | 0.789 (0.779 to 0.796) | 68.3% | 6.0% | 10.4% |
+| Age under 30 | 36,281 | 11.5% | 0.764 (0.756 to 0.772) | 50.4% | 15.8% | 22.4% |
+| Age 40 to 49 | 61,296 | 7.7% | 0.793 (0.786 to 0.800) | 61.2% | 7.5% | 16.9% |
+| Age 60 and over | 28,110 | 4.9% | 0.745 (0.733 to 0.759) | 82.3% | 2.4% | 7.5% |
+| Cash loans | 222,560 | 8.3% | 0.789 (0.786 to 0.792) | 58.7% | 9.0% | 17.1% |
+| Revolving loans | 23,448 | 5.5% | 0.778 (0.766 to 0.790) | 79.0% | 3.5% | 6.7% |
+| No bureau record | 35,244 | 10.1% | 0.777 (0.769 to 0.785) | 54.7% | 12.0% | 20.9% |
+| Has bureau record | 210,764 | 7.7% | 0.790 (0.786 to 0.794) | 61.2% | 7.9% | 16.0% |
+
+- The model is calibrated in every segment of 1,000 applicants or more: the mean predicted probability is within 0.002 of the default rate in all 17.
+- Most of the difference in error counts comes from the default rate, not from the ranking. Income bands 1 to 5 have ROC-AUC between 0.786 and 0.790 with overlapping intervals, yet the top band, with 6.5% defaulting, has 68.3% of its defaulters missed against 57.7% to 60.8% in the other bands, because one threshold refuses fewer applicants where fewer default. The loan-size cost saved falls from 21.4% in the lowest band to 10.4% in the top band.
+- The model ranks worse for the oldest and the youngest applicants. ROC-AUC is 0.745 for 60 and over (1,379 defaulters) and 0.764 for under 30 (4,165 defaulters), against 0.793 for 40 to 49; the intervals do not overlap with the 30 to 49 groups. Under 30 the threshold refuses 19.7% of the applicants and 15.8% of the good loans. At 60 and over it refuses 3.2% and misses 82.3% of the defaulters, and the cost saved is 7.5%.
+- Revolving loans gain little from the model (6.7% saved, 79.0% of defaulters missed), but their ROC-AUC (0.778, interval 0.766 to 0.790) is not clearly different from the overall 0.789; their default rate is 5.5%. Applicants without a bureau record rank worse (ROC-AUC 0.777 against 0.790, intervals not overlapping). They are 14.3% of the applicants and default at 10.1%.
+- Applicants with fewer `EXT_SOURCE` scores known rank slightly worse: ROC-AUC 0.779 with one score known, 0.788 with two and 0.791 with three. Only 139 applicants have none (12 defaulters), too few to say anything: the AUC interval is 0.54 to 0.90 and the model predicts 6.7% against an observed 8.6%.
+- The segments overlap (an applicant is in one income band, one age band, one contract type and so on), so the table does not separate their effects.

@@ -808,6 +808,49 @@ def applicant_plot():
     plt.close(fig)
 
 
+def segments_plot():
+    everything = pd.read_csv("results/segments.csv")
+    overall = everything[everything["family"] == "all"].iloc[0]
+    table = everything[everything["family"] != "all"]
+    fig, (rate, auc, error) = plt.subplots(1, 3, figsize=(15, 7.2), facecolor=SURFACE, sharey=True)
+    tick_y, tick_labels, cursor, first = [], [], 0.0, True
+    for family, part in table.groupby("family", sort=False):
+        tick_y.append(cursor)
+        tick_labels.append(family.upper())
+        cursor += 1
+        for _, row in part.iterrows():
+            tick_y.append(cursor)
+            tick_labels.append(f"{row['segment']} (n={int(row['n']):,})")
+            rate.plot([row["default_rate"]], [cursor], marker="o", markersize=7, color=SERIES[0], linewidth=0, label="default rate" if first else None)
+            rate.plot([row["mean_probability"]], [cursor], marker="D", markersize=6, markerfacecolor=SURFACE, markeredgecolor=SERIES[1], markeredgewidth=1.8, linewidth=0, label="mean predicted probability" if first else None)
+            auc.errorbar([row["roc_auc"]], [cursor], xerr=[[row["roc_auc"] - row["roc_auc_low"]], [row["roc_auc_high"] - row["roc_auc"]]], marker="o", markersize=6, color=SERIES[0], elinewidth=1.5, capsize=3)
+            error.errorbar([row["fnr"]], [cursor], xerr=[[row["fnr"] - row["fnr_low"]], [row["fnr_high"] - row["fnr"]]], marker="o", markersize=6, color=SERIES[1], elinewidth=1.5, capsize=3, label="defaulters missed (share of defaulters)" if first else None)
+            error.errorbar([row["fpr"]], [cursor], xerr=[[row["fpr"] - row["fpr_low"]], [row["fpr_high"] - row["fpr"]]], marker="s", markersize=6, color=SERIES[2], elinewidth=1.5, capsize=3, label="good loans refused (share of good loans)" if first else None)
+            cursor += 1
+            first = False
+        cursor += 0.6
+    rate.axvline(overall["default_rate"], color=REFERENCE, linewidth=1.2, linestyle=(0, (4, 3)))
+    auc.axvline(overall["roc_auc"], color=REFERENCE, linewidth=1.2, linestyle=(0, (4, 3)))
+    error.axvline(overall["fnr"], color=SERIES[1], linewidth=1, linestyle=(0, (2, 3)), alpha=0.6)
+    error.axvline(overall["fpr"], color=SERIES[2], linewidth=1, linestyle=(0, (2, 3)), alpha=0.6)
+    rate.set(xlabel="Share of applicants", title="Default rate and mean predicted probability")
+    auc.set(xlabel="ROC-AUC (95% bootstrap interval)", title="Ranking quality, dashed: all applicants")
+    error.set(xlabel="Share (95% Wilson interval)", title="Errors at threshold 0.182")
+    rate.set_yticks(tick_y, tick_labels)
+    for tick, text in zip(rate.get_yticklabels(), tick_labels):
+        if text.isupper() and "(" not in text:
+            tick.set_fontweight("bold")
+            tick.set_color(INK)
+    rate.invert_yaxis()
+    for ax in (rate, error):
+        ax.legend(loc="lower right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    for ax in (rate, auc, error):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "segments.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -836,6 +879,7 @@ def main():
     weighted_shift_plot()
     importance_plot()
     applicant_plot()
+    segments_plot()
 
 
 if __name__ == "__main__":

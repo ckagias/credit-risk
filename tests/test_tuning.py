@@ -83,3 +83,9 @@ def test_a_stored_study_resumes_up_to_the_requested_total(parts, tmp_path):
     study = tuning.tune(parts[0], n_trials=4, storage=storage, n_startup_trials=100)
     assert len(study.trials) == 4
     assert [t.number for t in study.trials] == [0, 1, 2, 3]
+
+
+def test_a_callback_is_called_once_for_every_finished_trial(parts):
+    seen = []
+    study = tuning.tune(parts[0], n_trials=4, n_startup_trials=100, callbacks=[lambda study, trial: seen.append(trial.number)])
+    assert seen == [t.number for t in study.trials]

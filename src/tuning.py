@@ -1,4 +1,5 @@
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
@@ -82,12 +83,12 @@ def make_study(storage=None, n_startup_trials=10):
     return study
 
 
-def tune(parts, n_trials=N_TRIALS, storage=None, **study_args):
+def tune(parts, n_trials=N_TRIALS, storage=None, callbacks=(), **study_args):
     study = make_study(storage, **study_args)
     finished = sum(trial.state.is_finished() for trial in study.trials)
     remaining = n_trials - finished
     if remaining > 0:
-        study.optimize(lambda trial: objective(trial, parts), n_trials=remaining)
+        study.optimize(lambda trial: objective(trial, parts), n_trials=remaining, callbacks=list(callbacks))
     return study
 
 
@@ -117,7 +118,16 @@ def main():
     con.close()
     STUDY_DB.parent.mkdir(exist_ok=True)
     start = time.time()
-    study = tune(prepare_folds(X, y), storage=f"sqlite:///{STUDY_DB}")
+    callbacks, tracker = [], None
+    if "track" in sys.argv[1:]:
+        import tracking
+
+        tracker = tracking.StudyTracker()
+        tracker.start()
+        callbacks = [tracker.callback]
+    study = tune(prepare_folds(X, y), storage=f"sqlite:///{STUDY_DB}", callbacks=callbacks)
+    if tracker is not None:
+        tracker.finish(study)
     print(f"tuning took {time.time() - start:.0f}s")
     table = trials_table(study)
     table.to_csv(TRIALS, index=False, float_format="%.6f")

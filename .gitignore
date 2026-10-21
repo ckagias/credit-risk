@@ -9,10 +9,14 @@ notes.md
 .pytest_cache/
 models/
 mlruns/
+mlartifacts/
 *.db
 *.sqlite
 
 # row-level samples of the competition data, kept on disk only
 results/logit_sample.csv
 results/regression_residuals.csv
-mlartifacts/
+results/shap_sample.csv
+results/shap_applicants.csv
+results/weighted_shift_sample.csv
+results/svm_margins.csv

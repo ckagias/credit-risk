@@ -38,7 +38,7 @@ The best model is LightGBM with tuned settings on the application columns plus 1
 src/        one script per stage (loading, features, models, tuning, explanation, holdout, tracking, charts)
 sql/        one SQL file per feature group
 tests/      pytest checks of the metrics, the split, the SQL tables, the maths and the holdout guard
-results/    the numbers behind every table and chart (CSV)
+results/    the numbers behind every table and chart (CSV); row-level samples are kept on disk only, not in git
 docs/img/   the charts used in this file and in MATH.md
 data/       the raw files, the SQLite database and caches of out-of-fold predictions (not tracked)
 ```
@@ -69,7 +69,7 @@ The Kaggle files are not in the repository. Accept the rules of the competition 
 | 10 | `python src/explain.py`, `segments.py`, `fairness.py` | SHAP and permutation importance, errors by segment, the fairness check (`segments.py` and `fairness.py` each fit the model on 5 folds, about 10 minutes) |
 | 11 | `python src/forest_sql.py`, then `python src/holdout.py` | The forest check on the SQL features, then the holdout score. `holdout.py` refuses to run again while `results/holdout.csv` exists |
 | 12 | `python src/tracking.py backfill`, then `python src/tracking.py final` | The tuning study and the final model into MLflow |
-| 13 | `python src/make_plots.py` | Every chart in `docs/img/` from the files in `results/` |
+| 13 | `python src/make_plots.py` | Every chart in `docs/img/` from the files in `results/`. The charts of the SHAP values, the SVM margins and the class-weight shift also need the row-level files written by `explain.py`, `svm_math.py` and `weighted_math.py`, which are not in the repository |
 
 The maths checks have their own scripts (`logistic_demo.py`, `tree_math.py`, `forest_math.py`, `boosting_math.py`, `knn_math.py`, `svm_math.py`, `pca_math.py`, `kmeans_math.py`, `weighted_math.py`, with `python src/weighted_math.py gap` for the odds-shift study). Tests: `python -m pytest tests` (395 tests; `tests/test_sql_features.py` needs the database and the feature tables). To browse the MLflow runs: `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
 
@@ -218,7 +218,7 @@ Loan-size weighted cost per 1,000 applicants in units of one refused good loan o
 
 ## Explainability
 
-`src/explain.py` fits LightGBM with the tuned parameters on the six SQL feature groups (the best model by cross-validation, PR-AUC 0.2813) on the training part of fold 0, and explains it on that fold's 49,202 validation applicants. Fold 0 scores PR-AUC 0.2734, ROC-AUC 0.7898. The holdout is not used. Permutation importance shuffles one of the 477 model inputs at a time, 5 times, and measures the drop in PR-AUC. SHAP values (`TreeExplainer`, log-odds) are computed for 5,000 of the validation applicants. Charts in `docs/img/importance.png` and `docs/img/shap_applicants.png`, results in `results/permutation_importance.csv`, `results/shap_importance.csv`, `results/shap_sample.csv` and `results/shap_applicants.csv`.
+`src/explain.py` fits LightGBM with the tuned parameters on the six SQL feature groups (the best model by cross-validation, PR-AUC 0.2813) on the training part of fold 0, and explains it on that fold's 49,202 validation applicants. Fold 0 scores PR-AUC 0.2734, ROC-AUC 0.7898. The holdout is not used. Permutation importance shuffles one of the 477 model inputs at a time, 5 times, and measures the drop in PR-AUC. SHAP values (`TreeExplainer`, log-odds) are computed for 5,000 of the validation applicants. Charts in `docs/img/importance.png` and `docs/img/shap_applicants.png`, results in `results/permutation_importance.csv` and `results/shap_importance.csv`. The SHAP values of 2,000 applicants and of the four single applicants are written to `results/shap_sample.csv` and `results/shap_applicants.csv`, which are row-level and kept out of git.
 
 ![Permutation importance, SHAP importance and the SHAP value of each applicant for the 15 most important features](docs/img/importance.png)
 
@@ -299,7 +299,7 @@ Loan-size weighted cost per 1,000 applicants in units of one refused good loan o
 
 ## Holdout score
 
-`src/holdout.py` scores each family once on the 61,503 holdout applicants (8.1% default), all on the six SQL feature groups and all refitted on the 246,008 training applicants. The scoring code, the model settings and the threshold were committed before the holdout was read (`df51ca6`), the code was run beforehand on a split of the training part only, and nothing was changed after the result. The script refuses to run again while `results/holdout.csv` exists. The forest settings were checked by cross-validation on the six groups first (`src/forest_sql.py`: 30 columns per split 0.2527 PR-AUC, 60 columns 0.2508). Intervals are 95% bootstrap intervals from 1,000 resamples of the holdout applicants. Chart in `docs/img/holdout.png`, results in `results/holdout.csv` and `results/holdout_cost.csv`.
+`src/holdout.py` scores each family once on the 61,503 holdout applicants (8.1% default), all on the six SQL feature groups and all refitted on the 246,008 training applicants. The scoring code, the model settings and the threshold were committed before the holdout was read (`8b74c9a`), the code was run beforehand on a split of the training part only, and nothing was changed after the result. The script refuses to run again while `results/holdout.csv` exists. The forest settings were checked by cross-validation on the six groups first (`src/forest_sql.py`: 30 columns per split 0.2527 PR-AUC, 60 columns 0.2508). Intervals are 95% bootstrap intervals from 1,000 resamples of the holdout applicants. Chart in `docs/img/holdout.png`, results in `results/holdout.csv` and `results/holdout_cost.csv`.
 
 ![PR-AUC and ROC-AUC on the holdout with bootstrap intervals, next to the cross-validation means](docs/img/holdout.png)
 

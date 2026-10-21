@@ -113,7 +113,7 @@ Calibrated within every gender and age group, yet the error rates differ (out of
 - **The calibration and threshold study used the application-column LightGBM**, not the best model. The threshold was re-checked on the best model's out-of-fold predictions (0.182 against a grid optimum of 0.19, same cost).
 - **The holdout is higher than cross-validation for every model** and the reason was not isolated.
 - **Limits.** The data has no application dates, so the split is random and says nothing about drift over time. The holdout is one sample of 61,503 applicants. The 45% and 10% cost figures are assumptions. The Kaggle leaderboard was not used. The model is not served, monitored or validated outside this dataset.
-- **Process.** Commit `48cff06` was committed with 44 failing tests (a preprocessing change broke the clipped preprocessor) and fixed in the next commit (`a605c73`).
+- **Process.** Commit `55dad14` was committed with 44 failing tests (a preprocessing change broke the clipped preprocessor) and fixed in the next commit (`50c6ebc`).
 
 ## Reproduce
 

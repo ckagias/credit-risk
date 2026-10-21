@@ -760,6 +760,54 @@ def weighted_shift_plot():
     plt.close(fig)
 
 
+def shap_label(name):
+    return name.split("__", 1)[-1]
+
+
+def importance_plot():
+    permutation = pd.read_csv("results/permutation_importance.csv").head(15).iloc[::-1]
+    shapley = pd.read_csv("results/shap_importance.csv").head(15).iloc[::-1]
+    sample = pd.read_csv("results/shap_sample.csv")
+    order = list(pd.read_csv("results/shap_importance.csv")["feature"][: sample["feature"].nunique()])[::-1]
+    fig, (perm, bars, swarm) = plt.subplots(1, 3, figsize=(16, 5.6), facecolor=SURFACE)
+    perm.barh([shap_label(f) for f in permutation["feature"]], permutation["importance_mean"], xerr=permutation["importance_std"], color=SERIES[0], error_kw={"ecolor": INK_SECONDARY, "elinewidth": 1})
+    perm.set(xlabel="Drop in PR-AUC when the column is shuffled", title="Permutation importance (5 shuffles)")
+    bars.barh([shap_label(f) for f in shapley["feature"]], shapley["mean_abs_shap"], color=SERIES[1])
+    bars.set(xlabel="Mean |SHAP value| (log-odds)", title="SHAP importance, 5,000 applicants")
+    colors = matplotlib.colors.LinearSegmentedColormap.from_list("low_high", [SERIES[0], "#d9d8d4", SERIES[1]])
+    rng = np.random.default_rng(0)
+    for row, feature in enumerate(order):
+        part = sample[sample["feature"] == feature]
+        rank = part["value"].rank(pct=True)
+        swarm.scatter(part["shap"], row + rng.uniform(-0.3, 0.3, len(part)), c=rank, cmap=colors, s=6, alpha=0.7, linewidths=0, rasterized=True)
+    swarm.axvline(0, color=REFERENCE, linewidth=1)
+    swarm.set_yticks(range(len(order)), [shap_label(f) for f in order])
+    swarm.set(xlabel="SHAP value (log-odds), right = higher risk", title="SHAP value of each applicant")
+    swarm.text(0.98, 0.02, "colour: feature value, low blue, high orange", transform=swarm.transAxes, ha="right", fontsize=8.5, color=INK_SECONDARY)
+    for ax in (perm, bars, swarm):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "importance.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def applicant_plot():
+    table = pd.read_csv("results/shap_applicants.csv")
+    labels = list(dict.fromkeys(table["applicant"]))
+    fig, axes = plt.subplots(2, 2, figsize=(13, 7.4), facecolor=SURFACE)
+    for ax, label in zip(axes.ravel(), labels):
+        part = table[table["applicant"] == label].iloc[::-1]
+        ax.barh([f"{shap_label(f)} = {v:.3g}" for f, v in zip(part["feature"], part["value"])], part["shap"], color=[SERIES[1] if v > 0 else SERIES[0] for v in part["shap"]])
+        ax.axvline(0, color=REFERENCE, linewidth=1)
+        first = part.iloc[0]
+        outcome = "defaulted" if first["default"] else "repaid"
+        ax.set(xlabel="SHAP value (log-odds)", title=f"{label}: score {first['probability']:.3f}, {outcome}")
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "shap_applicants.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -786,6 +834,8 @@ def main():
     calibration_plot()
     threshold_plot()
     weighted_shift_plot()
+    importance_plot()
+    applicant_plot()
 
 
 if __name__ == "__main__":

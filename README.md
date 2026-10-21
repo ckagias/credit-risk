@@ -2,7 +2,7 @@
 
 Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, k-means, class imbalance, calibration, the decision threshold and the maths of Phases 6 and 7 are done.
+Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, k-means, class imbalance, calibration, the decision threshold and the maths of Phases 6 and 7 are done, and Phase 8 has started with permutation importance and SHAP.
 
 ## Data
 
@@ -146,3 +146,26 @@ Loan-size weighted cost per 1,000 applicants in units of one refused good loan o
 - The formula needs calibrated probabilities. For LightGBM with balanced class weights the lowest cost is at 0.692 (300.3), near the 0.717 the odds shift of 11.4 predicts, and the formula's 0.182 refuses 83.8% of the applicants at a cost of 764.5. After Platt scaling the formula works again (300.2).
 - A calibrated model predicts its own cost: the expected cost at the formula's threshold is 295.9 against a realised 300.1 (1.4% apart). For the class-weighted model the expected cost at its best threshold (1,445.7) is far from the realised one (300.3).
 - The ratio of the two costs is the same for every loan (4.5), and the holdout is not used here. Results in `results/threshold_folds.csv` and `results/threshold_curve.csv`.
+
+## Explainability
+
+`src/explain.py` fits LightGBM with the tuned parameters on the six SQL feature groups (the best model by cross-validation, PR-AUC 0.2813) on the training part of fold 0, and explains it on that fold's 49,202 validation applicants. Fold 0 scores PR-AUC 0.2734, ROC-AUC 0.7898. The holdout is not used. Permutation importance shuffles one of the 477 model inputs at a time, 5 times, and measures the drop in PR-AUC. SHAP values (`TreeExplainer`, log-odds) are computed for 5,000 of the validation applicants. Charts in `docs/img/importance.png` and `docs/img/shap_applicants.png`, results in `results/permutation_importance.csv`, `results/shap_importance.csv`, `results/shap_sample.csv` and `results/shap_applicants.csv`.
+
+![Permutation importance, SHAP importance and the SHAP value of each applicant for the 15 most important features](docs/img/importance.png)
+
+| Feature | PR-AUC drop when shuffled (std over 5 shuffles) | Mean absolute SHAP value (log-odds) |
+|---|---:|---:|
+| `app_ext_mean` (mean of the three `EXT_SOURCE` scores) | 0.0444 (0.0019) | 0.346 |
+| `app_credit_term` | 0.0071 (0.0014) | 0.105 |
+| `prev_annuity_mean` | 0.0047 (0.0010) | 0.097 |
+| `AMT_ANNUITY` | 0.0043 (0.0005) | 0.096 |
+| `pos_future_installments` | 0.0045 (0.0008) | 0.094 |
+| `ins_last10_late_share` | 0.0030 (0.0004) | 0.091 |
+
+- One feature dominates. Shuffling `app_ext_mean` costs 0.044 PR-AUC, six times the next feature (`app_credit_term`, 0.007), and its mean absolute SHAP value is 3.3 times the next. A low outside score raises the predicted risk and a high one lowers it, from about -0.7 to +1.0 log-odds. The `EXT_SOURCE` columns and their aggregates together hold 16.7% of the total SHAP importance.
+- The SQL features carry real weight: the six groups hold 62.6% of the SHAP importance (application ratios and `EXT_SOURCE` aggregates 21.4%, `previous_application` 11.6%, `bureau` 11.4%, `installments_payments` 7.7%, `POS_CASH_balance` 7.4%, `credit_card_balance` 3.1%) and the raw application columns 37.3%. 11 of the top 15 columns by permutation are SQL-built.
+- The two measures agree on the top and differ below it. The rank correlation over all 477 columns is 0.59 and 15 of the top 20 columns are the same. The permutation drop is 0 or negative for 257 columns (87 are negative, which is noise around zero), and 144 columns have at least 0.1% of the SHAP importance. Correlated columns share the credit under both measures.
+- Direction of the effects (rank correlation between the feature value and its SHAP value, 2,000 applicants): a higher `AMT_ANNUITY` (0.95), annuity-to-income (0.93), credit-to-goods ratio (0.90), `prev_granted_ratio` (0.88), `prev_term_mean` (0.86), late-instalment share (0.80) and number of future instalments (0.76) raise the predicted risk. A higher `app_ext_mean` (-0.99), `prev_annuity_mean` (-0.97), `pos_last12_months` (-0.92) and `app_ext_max` (-0.80) lower it. The credit term has no single direction (-0.28). `CODE_GENDER_M` raises the predicted risk by 0.106 log-odds on average for men and lowers it by 0.061 for women (2,000 applicants), so the model uses gender directly; the fairness check is a separate step.
+- Single applicants (`docs/img/shap_applicants.png`): the highest score, 0.888 (defaulted), is driven by an `EXT_SOURCE` mean of 0.178 (+0.87 log-odds), overdue bureau debt (+0.52) and a credit card balance at 114% of its limit (+0.49). The lowest score, 0.002, comes from an `EXT_SOURCE` mean of 0.729 (-0.62) and a small annuity (-0.38). The defaulter scored lowest (0.005) has an `EXT_SOURCE` mean of 0.739 (-0.62), and the largest push upward is 0.10. The repaid applicant scored highest (0.787) has an `EXT_SOURCE` mean of 0.129 (+0.98).
+
+![SHAP values of four single applicants](docs/img/shap_applicants.png)

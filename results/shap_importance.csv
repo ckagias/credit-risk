@@ -1,0 +1,478 @@
+feature,mean_abs_shap,share
+num__app_ext_mean,0.346173,0.0837446
+num__app_credit_term,0.10519,0.0254471
+num__prev_annuity_mean,0.0968316,0.0234251
+num__AMT_ANNUITY,0.0957011,0.0231516
+num__pos_future_installments,0.0942741,0.0228063
+num__ins_last10_late_share,0.0910013,0.0220146
+num__app_credit_to_goods,0.089431,0.0216347
+num__prev_term_mean,0.0843395,0.020403
+num__app_ext_max,0.0799692,0.0193458
+cat__CODE_GENDER_M,0.0761681,0.0184262
+num__pos_last12_months,0.0759979,0.0183851
+num__app_annuity_to_income,0.0717966,0.0173687
+num__prev_granted_ratio,0.0671196,0.0162373
+cat__NAME_FAMILY_STATUS_Married,0.0658532,0.0159309
+num__app_ext_min,0.0657864,0.0159147
+num__EXT_SOURCE_3,0.0644853,0.0156
+num__bur_n_closed,0.0610275,0.0147635
+num__pos_n_months,0.0606934,0.0146827
+cat__NAME_EDUCATION_TYPE_Higher education,0.058666,0.0141922
+num__AMT_GOODS_PRICE,0.0546333,0.0132166
+num__bur_active_end_mean,0.0534485,0.01293
+num__missingindicator_EXT_SOURCE_1,0.0519106,0.012558
+num__bur_active_debt_ratio,0.0501524,0.0121326
+num__DAYS_BIRTH,0.0491584,0.0118922
+cat__CODE_GENDER_F,0.0490785,0.0118728
+num__prev_refused_share,0.0447896,0.0108353
+num__ins_n_instalments,0.0428824,0.0103739
+num__DAYS_ID_PUBLISH,0.0416228,0.0100692
+num__FLAG_DOCUMENT_3,0.0412008,0.00996711
+num__DAYS_EMPLOYED,0.0410453,0.00992949
+num__cc_utilization_now,0.0404658,0.00978931
+num__OWN_CAR_AGE,0.039788,0.00962533
+num__ins_days_late_max,0.0393497,0.0095193
+num__bur_max_overdue,0.0392619,0.00949805
+num__bur_active_credit_sum,0.0390863,0.00945558
+num__bur_days_newest,0.0374148,0.00905121
+num__EXT_SOURCE_2,0.0370725,0.00896841
+num__app_years_employed,0.0349704,0.00845988
+num__ins_last10_days_late_mean,0.0339677,0.00821731
+num__REGION_POPULATION_RELATIVE,0.0332085,0.00803366
+num__bur_n_active,0.0326789,0.00790552
+num__ins_days_oldest,0.0305767,0.00739697
+num__bur_bb_months,0.0292837,0.00708418
+cat__FLAG_OWN_CAR_N,0.0292118,0.00706677
+num__REGION_RATING_CLIENT_W_CITY,0.0283739,0.00686409
+num__bur_last3_credit_mean,0.0282413,0.00683202
+num__prev_credit_sum,0.0279914,0.00677155
+num__EXT_SOURCE_1,0.0265567,0.00642448
+num__app_age_years,0.0262431,0.00634861
+cat__NAME_EDUCATION_TYPE_Secondary / secondary special,0.026156,0.00632754
+num__ins_late_slope_year,0.0240943,0.00582879
+num__AMT_CREDIT,0.0239293,0.00578887
+num__FLAG_WORK_PHONE,0.0237216,0.00573862
+num__prev_days_newest,0.022898,0.00553939
+num__app_age_at_job_start,0.022766,0.00550744
+num__prev_credit_max,0.0225177,0.00544738
+num__prev_n_cash,0.0202681,0.00490318
+num__DAYS_REGISTRATION,0.0198137,0.00479325
+num__ins_days_late_pos_mean,0.0197564,0.00477937
+cat__NAME_INCOME_TYPE_Working,0.0191908,0.00464255
+cat__WALLSMATERIAL_MODE_Panel,0.0180096,0.0043568
+num__DEF_30_CNT_SOCIAL_CIRCLE,0.017886,0.00432691
+cat__ORGANIZATION_TYPE_Self-employed,0.0173918,0.00420734
+num__bur_last3_n_active,0.0173057,0.00418652
+num__DAYS_LAST_PHONE_CHANGE,0.0171111,0.00413944
+num__pos_dpd_slope,0.0168702,0.00408116
+num__REG_CITY_NOT_LIVE_CITY,0.0168517,0.00407669
+num__ins_late_share,0.0163077,0.00394509
+num__app_credit_to_income,0.0161486,0.00390661
+num__missingindicator_bur_max_overdue,0.0154349,0.00373393
+num__bur_active_debt_sum,0.0154228,0.00373101
+num__prev_down_rate_mean,0.0153843,0.0037217
+num__cc_utilization_max,0.0152806,0.0036966
+num__cc_drawings_mean,0.0142597,0.00344965
+num__bur_days_oldest,0.0137415,0.00332429
+cat__FLAG_OWN_CAR_Y,0.013431,0.00324917
+num__HOUR_APPR_PROCESS_START,0.0130095,0.0031472
+num__bur_credit_sum,0.0129875,0.00314188
+num__AMT_INCOME_TOTAL,0.0127271,0.00307888
+cat__NAME_FAMILY_STATUS_Single / not married,0.0124511,0.00301211
+num__pos_months_oldest,0.0121559,0.0029407
+num__AMT_REQ_CREDIT_BUREAU_QRT,0.0119448,0.00288963
+num__prev_n_refused,0.0118088,0.00285673
+num__missingindicator_EXT_SOURCE_3,0.0117761,0.00284882
+num__cc_balance_max,0.0116588,0.00282044
+num__pos_late_share,0.0111583,0.00269937
+num__app_employed_to_age,0.0110153,0.00266478
+num__DEF_60_CNT_SOCIAL_CIRCLE,0.0108666,0.00262881
+num__bur_debt_sum,0.0108517,0.00262518
+cat__OCCUPATION_TYPE_Accountants,0.0107917,0.00261067
+cat__ORGANIZATION_TYPE_Business Entity Type 3,0.010209,0.00246971
+num__BASEMENTAREA_MODE,0.0101454,0.00245433
+num__prev_days_oldest,0.00986424,0.00238631
+num__pos_late_def_share,0.00961758,0.00232664
+cat__OCCUPATION_TYPE_Core staff,0.00959854,0.00232203
+num__AMT_REQ_CREDIT_BUREAU_YEAR,0.009334,0.00225804
+cat__WEEKDAY_APPR_PROCESS_START_MONDAY,0.00928361,0.00224585
+num__FLAG_DOCUMENT_6,0.00904942,0.00218919
+num__cc_balance_now,0.00895482,0.00216631
+num__cc_utilization_mean,0.00850637,0.00205782
+num__prev_credit_mean,0.00844902,0.00204395
+num__ins_underpaid_ratio,0.00835137,0.00202032
+num__bur_n_last_year,0.00818936,0.00198113
+num__prev_last_credit,0.00805255,0.00194804
+num__pos_last12_late_share,0.00775336,0.00187566
+num__YEARS_BEGINEXPLUATATION_MODE,0.00771107,0.00186543
+num__app_income_per_person,0.00762007,0.00184341
+num__prev_last3_n_refused,0.00758353,0.00183457
+num__cc_last6_utilization_mean,0.00750298,0.00181509
+cat__ORGANIZATION_TYPE_Construction,0.00739876,0.00178987
+cat__NAME_INCOME_TYPE_State servant,0.0071795,0.00173683
+cat__NAME_CONTRACT_TYPE_Revolving loans,0.00714642,0.00172883
+cat__OCCUPATION_TYPE_Drivers,0.00702905,0.00170044
+num__cc_atm_share,0.00688217,0.0016649
+num__ins_days_late_mean,0.00685821,0.00165911
+num__pos_n_completed_loans,0.00672029,0.00162574
+cat__ORGANIZATION_TYPE_School,0.00667304,0.00161431
+num__NONLIVINGAPARTMENTS_AVG,0.00619576,0.00149885
+num__OBS_30_CNT_SOCIAL_CIRCLE,0.0058276,0.00140979
+num__prev_last_refused,0.00571101,0.00138158
+cat__WEEKDAY_APPR_PROCESS_START_SATURDAY,0.00554708,0.00134192
+num__app_ext_n_known,0.00554273,0.00134087
+num__BASEMENTAREA_AVG,0.00549943,0.0013304
+num__bur_n_credits,0.00523959,0.00126754
+num__pos_n_loans,0.005225,0.00126401
+num__missingindicator_bur_active_debt_sum,0.00515621,0.00124737
+cat__WEEKDAY_APPR_PROCESS_START_FRIDAY,0.00511789,0.0012381
+num__cc_months_oldest,0.00508324,0.00122971
+num__OBS_60_CNT_SOCIAL_CIRCLE,0.00500727,0.00121134
+num__APARTMENTS_MODE,0.00492033,0.0011903
+num__bur_bb_late_share,0.00489094,0.00118319
+num__prev_n,0.00485417,0.0011743
+num__LANDAREA_AVG,0.00482531,0.00116732
+num__BASEMENTAREA_MEDI,0.00473421,0.00114528
+num__bur_n_types,0.00465927,0.00112715
+num__ENTRANCES_MODE,0.00450336,0.00108943
+num__CNT_CHILDREN,0.00441793,0.00106876
+num__COMMONAREA_AVG,0.00436268,0.0010554
+num__TOTALAREA_MODE,0.0043393,0.00104974
+cat__NAME_CONTRACT_TYPE_Cash loans,0.00429615,0.00103931
+num__prev_n_revolving,0.0042229,0.00102158
+num__prev_n_approved,0.00419577,0.00101502
+num__FLAG_PHONE,0.00416557,0.00100772
+num__LANDAREA_MEDI,0.00416227,0.00100692
+num__NONLIVINGAREA_MODE,0.00411488,0.000995454
+num__YEARS_BEGINEXPLUATATION_AVG,0.00397421,0.000961423
+num__prev_n_consumer,0.00392888,0.000950455
+num__YEARS_BUILD_MODE,0.00364149,0.000880932
+num__prev_n_last_year,0.0036299,0.000878129
+num__LIVINGAREA_AVG,0.0035891,0.00086826
+num__COMMONAREA_MEDI,0.00351314,0.000849882
+num__APARTMENTS_AVG,0.00351117,0.000849406
+num__LIVINGAREA_MEDI,0.00347154,0.00083982
+num__YEARS_BEGINEXPLUATATION_MEDI,0.003451,0.000834851
+num__FLAG_DOCUMENT_8,0.00329808,0.000797857
+num__bur_overdue_sum,0.00329419,0.000796915
+num__app_children_share,0.00326243,0.000789233
+cat__ORGANIZATION_TYPE_Military,0.0031151,0.000753591
+num__ELEVATORS_AVG,0.00303483,0.000734172
+num__FLOORSMAX_MEDI,0.00301709,0.000729879
+num__LIVINGAREA_MODE,0.00301135,0.000728492
+num__AMT_REQ_CREDIT_BUREAU_MON,0.00290567,0.000702927
+num__LANDAREA_MODE,0.00289384,0.000700065
+num__ENTRANCES_AVG,0.00283292,0.000685327
+num__cc_balance_mean,0.00278387,0.00067346
+cat__ORGANIZATION_TYPE_Transport: type 3,0.00277916,0.00067232
+num__APARTMENTS_MEDI,0.00269698,0.000652441
+num__FLOORSMAX_AVG,0.00258279,0.000624816
+num__cc_n_months,0.00257471,0.000622862
+cat__ORGANIZATION_TYPE_Industry: type 9,0.00252953,0.000611933
+cat__FONDKAPREMONT_MODE_reg oper spec account,0.00249441,0.000603435
+num__missingindicator_bur_active_debt_ratio,0.00248823,0.000601941
+num__FLAG_DOCUMENT_18,0.00244983,0.000592651
+num__FLAG_DOCUMENT_16,0.00241909,0.000585214
+cat__ORGANIZATION_TYPE_Industry: type 3,0.00233155,0.000564037
+num__FLAG_DOCUMENT_13,0.00228503,0.000552784
+num__missingindicator_prev_down_rate_mean,0.00228223,0.000552107
+cat__ORGANIZATION_TYPE_Bank,0.00226304,0.000547465
+cat__NAME_HOUSING_TYPE_House / apartment,0.00218842,0.000529413
+num__ins_n_loans,0.00218422,0.000528397
+num__missingindicator_AMT_REQ_CREDIT_BUREAU_HOUR,0.00209449,0.00050669
+num__ins_underpaid_sum,0.00207964,0.000503096
+num__NONLIVINGAPARTMENTS_MODE,0.00201341,0.000487076
+cat__WEEKDAY_APPR_PROCESS_START_WEDNESDAY,0.00200578,0.000485228
+num__COMMONAREA_MODE,0.0019899,0.000481388
+num__bur_n_bad_or_sold,0.001976,0.000478026
+num__pos_dpd_mean,0.00196575,0.000475546
+num__NONLIVINGAREA_AVG,0.00193209,0.000467403
+num__missingindicator_OWN_CAR_AGE,0.00187467,0.000453512
+num__NONLIVINGAPARTMENTS_MEDI,0.00173601,0.000419967
+cat__NAME_HOUSING_TYPE_Rented apartment,0.00172227,0.000416643
+num__cc_min_payment_missed_share,0.00167491,0.000405186
+num__prev_n_unused,0.00161207,0.000389985
+cat__NAME_HOUSING_TYPE_Office apartment,0.00159357,0.000385509
+num__missingindicator_NONLIVINGAREA_MODE,0.00159193,0.000385113
+num__YEARS_BUILD_MEDI,0.00158893,0.000384386
+num__missingindicator_bur_active_end_mean,0.00158521,0.000383487
+num__NONLIVINGAREA_MEDI,0.00155895,0.000377135
+num__LIVINGAPARTMENTS_AVG,0.00153942,0.000372409
+num__missingindicator_app_age_at_job_start,0.00153783,0.000372024
+num__LIVINGAPARTMENTS_MEDI,0.00153062,0.000370281
+num__ins_n_unpaid,0.00152053,0.000367841
+num__FLOORSMIN_AVG,0.00147028,0.000355683
+num__pos_dpd_max,0.00145553,0.000352115
+num__CNT_FAM_MEMBERS,0.0014219,0.00034398
+num__REG_REGION_NOT_LIVE_REGION,0.00140416,0.000339689
+num__YEARS_BUILD_AVG,0.00133898,0.000323921
+num__ENTRANCES_MEDI,0.0013331,0.000322498
+num__LIVINGAPARTMENTS_MODE,0.00133221,0.000322282
+cat__NAME_FAMILY_STATUS_Widow,0.00129341,0.000312897
+cat__OCCUPATION_TYPE_Low-skill Laborers,0.00121954,0.000295025
+cat__FLAG_OWN_REALTY_N,0.00116382,0.000281546
+num__missingindicator_DAYS_EMPLOYED,0.00115705,0.000279908
+cat__OCCUPATION_TYPE_missing,0.00115676,0.000279838
+num__prev_n_canceled,0.00114588,0.000277206
+num__bur_day_overdue_max,0.00114221,0.000276318
+num__cc_dpd_max,0.00112416,0.000271952
+num__pos_n_active_loans,0.00111462,0.000269644
+cat__OCCUPATION_TYPE_Medicine staff,0.00110433,0.000267154
+cat__ORGANIZATION_TYPE_Other,0.00110193,0.000266573
+num__REGION_RATING_CLIENT,0.00110033,0.000266186
+cat__OCCUPATION_TYPE_Laborers,0.00109767,0.000265544
+num__missingindicator_pos_future_installments,0.0010938,0.000264608
+cat__NAME_FAMILY_STATUS_Separated,0.00109098,0.000263924
+cat__NAME_EDUCATION_TYPE_Incomplete higher,0.00108894,0.00026343
+cat__ORGANIZATION_TYPE_Government,0.00103132,0.000249491
+cat__OCCUPATION_TYPE_Sales staff,0.00095092,0.000230042
+num__FLOORSMAX_MODE,0.000929797,0.000224932
+num__FLAG_EMP_PHONE,0.000910327,0.000220222
+num__prev_n_still_open,0.00088796,0.000214811
+num__bur_prolong_sum,0.000863501,0.000208894
+num__missingindicator_ELEVATORS_AVG,0.000834747,0.000201938
+cat__NAME_EDUCATION_TYPE_Lower secondary,0.000830713,0.000200962
+cat__NAME_INCOME_TYPE_Commercial associate,0.000806134,0.000195016
+num__missingindicator_ins_late_slope_year,0.000786323,0.000190224
+num__missingindicator_bur_bb_late_share,0.000785678,0.000190068
+num__cc_late_def_share,0.000780037,0.000188703
+cat__FLAG_OWN_REALTY_Y,0.000779326,0.000188531
+cat__WEEKDAY_APPR_PROCESS_START_SUNDAY,0.000760356,0.000183942
+num__FLOORSMIN_MODE,0.000757636,0.000183284
+num__cc_late_share,0.000742949,0.000179731
+num__ELEVATORS_MODE,0.000727671,0.000176035
+num__FLOORSMIN_MEDI,0.000698804,0.000169051
+cat__ORGANIZATION_TYPE_Police,0.000658462,0.000159292
+num__ins_underpaid_share,0.000656805,0.000158891
+num__missingindicator_pos_months_oldest,0.000656804,0.000158891
+cat__HOUSETYPE_MODE_block of flats,0.000628267,0.000151987
+num__missingindicator_bur_bb_worst_status,0.000618833,0.000149705
+cat__ORGANIZATION_TYPE_Security Ministries,0.000611493,0.00014793
+cat__NAME_HOUSING_TYPE_Municipal apartment,0.000588462,0.000142358
+num__missingindicator_NONLIVINGAREA_AVG,0.000584348,0.000141363
+num__missingindicator_ELEVATORS_MEDI,0.000550098,0.000133077
+num__missingindicator_pos_last12_late_share,0.000526163,0.000127287
+cat__OCCUPATION_TYPE_Cooking staff,0.000518138,0.000125346
+num__missingindicator_bur_debt_sum,0.000515295,0.000124658
+cat__NAME_TYPE_SUITE_missing,0.000500102,0.000120982
+num__FLAG_EMAIL,0.00044902,0.000108625
+num__missingindicator_cc_last6_utilization_mean,0.000439432,0.000106305
+cat__NAME_FAMILY_STATUS_Civil marriage,0.00043747,0.000105831
+num__missingindicator_cc_utilization_now,0.000435479,0.000105349
+num__ELEVATORS_MEDI,0.000428206,0.00010359
+num__FLAG_DOCUMENT_14,0.000424663,0.000102733
+num__missingindicator_LIVINGAPARTMENTS_AVG,0.00040519,9.80216e-05
+cat__NAME_HOUSING_TYPE_With parents,0.000393557,9.52076e-05
+num__missingindicator_YEARS_BUILD_AVG,0.000387549,9.37542e-05
+cat__WEEKDAY_APPR_PROCESS_START_THURSDAY,0.000372839,9.01955e-05
+cat__WEEKDAY_APPR_PROCESS_START_TUESDAY,0.000369325,8.93454e-05
+num__missingindicator_app_years_employed,0.000342934,8.2961e-05
+num__missingindicator_prev_annuity_mean,0.000342069,8.27519e-05
+num__missingindicator_cc_balance_now,0.000328206,7.93981e-05
+num__REG_CITY_NOT_WORK_CITY,0.000320592,7.75561e-05
+num__bur_bb_late_last_year,0.00030515,7.38204e-05
+cat__ORGANIZATION_TYPE_Trade: type 7,0.000288237,6.9729e-05
+num__missingindicator_ins_days_oldest,0.00025246,6.1074e-05
+num__REG_REGION_NOT_WORK_REGION,0.000249907,6.04565e-05
+num__AMT_REQ_CREDIT_BUREAU_DAY,0.000247974,5.99888e-05
+cat__ORGANIZATION_TYPE_Hotel,0.000245058,5.92833e-05
+cat__OCCUPATION_TYPE_Managers,0.000244577,5.91669e-05
+cat__WALLSMATERIAL_MODE_missing,0.000240296,5.81312e-05
+cat__NAME_TYPE_SUITE_Other_A,0.00023251,5.62479e-05
+cat__OCCUPATION_TYPE_Waiters/barmen staff,0.000226475,5.47878e-05
+"cat__WALLSMATERIAL_MODE_Stone, brick",0.00022039,5.33158e-05
+cat__ORGANIZATION_TYPE_Business Entity Type 2,0.000213545,5.16599e-05
+num__FLAG_CONT_MOBILE,0.000211367,5.11329e-05
+num__missingindicator_BASEMENTAREA_MODE,0.00021131,5.11191e-05
+cat__OCCUPATION_TYPE_Security staff,0.000204698,4.95196e-05
+cat__NAME_INCOME_TYPE_Pensioner,0.000194791,4.71229e-05
+num__bur_bb_worst_status,0.000187167,4.52785e-05
+cat__EMERGENCYSTATE_MODE_Yes,0.00018358,4.44108e-05
+num__missingindicator_LANDAREA_AVG,0.000180253,4.3606e-05
+num__AMT_REQ_CREDIT_BUREAU_WEEK,0.000175875,4.25469e-05
+num__FLAG_DOCUMENT_11,0.000149624,3.61963e-05
+cat__FONDKAPREMONT_MODE_reg oper account,0.0001485,3.59245e-05
+cat__ORGANIZATION_TYPE_Business Entity Type 1,0.000124738,3.0176e-05
+num__missingindicator_bur_active_credit_sum,0.000120595,2.91739e-05
+cat__ORGANIZATION_TYPE_Industry: type 5,0.000119371,2.88778e-05
+num__missingindicator_cc_utilization_mean,0.000117059,2.83184e-05
+num__missingindicator_LIVINGAREA_AVG,0.000114175,2.76207e-05
+num__missingindicator_YEARS_BEGINEXPLUATATION_AVG,0.000103845,2.51218e-05
+cat__ORGANIZATION_TYPE_Postal,9.73362e-05,2.35471e-05
+cat__EMERGENCYSTATE_MODE_No,9.43039e-05,2.28136e-05
+cat__ORGANIZATION_TYPE_Transport: type 4,9.03224e-05,2.18504e-05
+num__missingindicator_FLOORSMIN_AVG,8.36167e-05,2.02282e-05
+num__missingindicator_APARTMENTS_AVG,7.93746e-05,1.92019e-05
+num__missingindicator_BASEMENTAREA_MEDI,6.77439e-05,1.63883e-05
+num__missingindicator_FLOORSMAX_AVG,6.29727e-05,1.52341e-05
+num__missingindicator_LANDAREA_MODE,4.42275e-05,1.06993e-05
+num__missingindicator_AMT_REQ_CREDIT_BUREAU_WEEK,0,0
+num__missingindicator_DEF_60_CNT_SOCIAL_CIRCLE,0,0
+num__missingindicator_DEF_30_CNT_SOCIAL_CIRCLE,0,0
+num__missingindicator_OBS_30_CNT_SOCIAL_CIRCLE,0,0
+num__missingindicator_OBS_60_CNT_SOCIAL_CIRCLE,0,0
+num__missingindicator_NONLIVINGAPARTMENTS_MEDI,0,0
+num__missingindicator_COMMONAREA_MEDI,0,0
+num__missingindicator_ENTRANCES_MEDI,0,0
+num__missingindicator_YEARS_BUILD_MEDI,0,0
+num__missingindicator_YEARS_BEGINEXPLUATATION_MEDI,0,0
+num__missingindicator_APARTMENTS_MEDI,0,0
+num__missingindicator_NONLIVINGAPARTMENTS_MODE,0,0
+num__missingindicator_LIVINGAREA_MODE,0,0
+num__missingindicator_LIVINGAPARTMENTS_MODE,0,0
+num__missingindicator_FLOORSMIN_MODE,0,0
+num__missingindicator_FLOORSMAX_MODE,0,0
+num__missingindicator_ENTRANCES_MODE,0,0
+cat__FONDKAPREMONT_MODE_org spec account,0,0
+num__missingindicator_LANDAREA_MEDI,0,0
+num__missingindicator_LIVINGAPARTMENTS_MEDI,0,0
+num__missingindicator_LIVINGAREA_MEDI,0,0
+num__LIVE_REGION_NOT_WORK_REGION,0,0
+cat__ORGANIZATION_TYPE_Insurance,0,0
+num__LIVE_CITY_NOT_WORK_CITY,0,0
+cat__ORGANIZATION_TYPE_Mobile,0,0
+cat__ORGANIZATION_TYPE_Medicine,0,0
+cat__ORGANIZATION_TYPE_Transport: type 2,0,0
+cat__ORGANIZATION_TYPE_Trade: type 6,0,0
+cat__ORGANIZATION_TYPE_Trade: type 3,0,0
+cat__ORGANIZATION_TYPE_missing,0,0
+cat__ORGANIZATION_TYPE_infrequent_sklearn,0,0
+cat__FONDKAPREMONT_MODE_missing,0,0
+cat__FONDKAPREMONT_MODE_not specified,0,0
+cat__ORGANIZATION_TYPE_University,0,0
+cat__ORGANIZATION_TYPE_Security,0,0
+cat__ORGANIZATION_TYPE_Services,0,0
+cat__ORGANIZATION_TYPE_Trade: type 1,0,0
+cat__ORGANIZATION_TYPE_Telecom,0,0
+cat__ORGANIZATION_TYPE_Trade: type 2,0,0
+cat__ORGANIZATION_TYPE_Realtor,0,0
+cat__ORGANIZATION_TYPE_Restaurant,0,0
+cat__ORGANIZATION_TYPE_Kindergarten,0,0
+num__missingindicator_cc_balance_max,0,0
+num__missingindicator_cc_balance_mean,0,0
+num__missingindicator_cc_months_oldest,0,0
+num__missingindicator_ins_last10_days_late_mean,0,0
+num__missingindicator_ins_last10_late_share,0,0
+num__missingindicator_ins_underpaid_ratio,0,0
+num__missingindicator_ins_underpaid_sum,0,0
+num__missingindicator_ins_underpaid_share,0,0
+num__missingindicator_ins_days_late_pos_mean,0,0
+num__missingindicator_ins_days_late_max,0,0
+num__missingindicator_ins_days_late_mean,0,0
+num__missingindicator_ins_late_share,0,0
+num__missingindicator_pos_dpd_slope,0,0
+num__missingindicator_pos_late_def_share,0,0
+num__missingindicator_pos_dpd_mean,0,0
+num__missingindicator_pos_late_share,0,0
+num__missingindicator_prev_days_oldest,0,0
+num__missingindicator_prev_credit_mean,0,0
+num__missingindicator_pos_dpd_max,0,0
+num__missingindicator_prev_last_credit,0,0
+num__missingindicator_prev_last_refused,0,0
+num__missingindicator_prev_term_mean,0,0
+num__missingindicator_prev_granted_ratio,0,0
+num__missingindicator_prev_credit_max,0,0
+num__missingindicator_bur_last3_credit_mean,0,0
+num__missingindicator_prev_refused_share,0,0
+num__missingindicator_prev_credit_sum,0,0
+num__missingindicator_prev_days_newest,0,0
+num__missingindicator_bur_credit_sum,0,0
+num__missingindicator_bur_overdue_sum,0,0
+num__missingindicator_bur_day_overdue_max,0,0
+num__missingindicator_bur_prolong_sum,0,0
+num__missingindicator_FLOORSMIN_MEDI,0,0
+num__missingindicator_FLOORSMAX_MEDI,0,0
+num__missingindicator_TOTALAREA_MODE,0,0
+num__missingindicator_NONLIVINGAREA_MEDI,0,0
+num__missingindicator_bur_days_oldest,0,0
+num__missingindicator_bur_days_newest,0,0
+num__missingindicator_AMT_REQ_CREDIT_BUREAU_QRT,0,0
+num__missingindicator_AMT_REQ_CREDIT_BUREAU_YEAR,0,0
+num__missingindicator_AMT_REQ_CREDIT_BUREAU_DAY,0,0
+num__missingindicator_DAYS_LAST_PHONE_CHANGE,0,0
+num__missingindicator_AMT_REQ_CREDIT_BUREAU_MON,0,0
+num__missingindicator_app_ext_mean,0,0
+num__missingindicator_app_ext_min,0,0
+cat__CODE_GENDER_infrequent_sklearn,0,0
+cat__NAME_TYPE_SUITE_Children,0,0
+cat__NAME_TYPE_SUITE_Family,0,0
+cat__NAME_INCOME_TYPE_infrequent_sklearn,0,0
+cat__NAME_TYPE_SUITE_infrequent_sklearn,0,0
+"cat__NAME_TYPE_SUITE_Spouse, partner",0,0
+cat__NAME_TYPE_SUITE_Unaccompanied,0,0
+cat__NAME_TYPE_SUITE_Other_B,0,0
+num__missingindicator_app_children_share,0,0
+num__missingindicator_app_credit_to_goods,0,0
+num__missingindicator_app_income_per_person,0,0
+num__missingindicator_cc_late_share,0,0
+num__missingindicator_cc_dpd_max,0,0
+num__missingindicator_cc_late_def_share,0,0
+num__missingindicator_app_annuity_to_income,0,0
+num__missingindicator_cc_atm_share,0,0
+num__missingindicator_cc_min_payment_missed_share,0,0
+num__missingindicator_cc_utilization_max,0,0
+num__missingindicator_cc_drawings_mean,0,0
+cat__NAME_HOUSING_TYPE_Co-op apartment,0,0
+cat__NAME_FAMILY_STATUS_infrequent_sklearn,0,0
+cat__NAME_EDUCATION_TYPE_infrequent_sklearn,0,0
+num__cc_n_active_cards,0,0
+num__bur_n_overdue_now,0,0
+num__missingindicator_COMMONAREA_MODE,0,0
+num__missingindicator_ELEVATORS_MODE,0,0
+num__cc_n_cards,0,0
+num__missingindicator_YEARS_BEGINEXPLUATATION_MODE,0,0
+num__missingindicator_APARTMENTS_MODE,0,0
+num__missingindicator_YEARS_BUILD_MODE,0,0
+num__missingindicator_EXT_SOURCE_2,0,0
+num__missingindicator_AMT_ANNUITY,0,0
+num__missingindicator_ENTRANCES_AVG,0,0
+num__missingindicator_COMMONAREA_AVG,0,0
+num__missingindicator_NONLIVINGAPARTMENTS_AVG,0,0
+num__missingindicator_AMT_GOODS_PRICE,0,0
+num__missingindicator_CNT_FAM_MEMBERS,0,0
+num__missingindicator_BASEMENTAREA_AVG,0,0
+num__missingindicator_app_credit_term,0,0
+num__missingindicator_app_ext_max,0,0
+num__missingindicator_app_employed_to_age,0,0
+num__FLAG_DOCUMENT_2,0,0
+cat__OCCUPATION_TYPE_Secretaries,0,0
+num__FLAG_DOCUMENT_9,0,0
+num__FLAG_DOCUMENT_7,0,0
+num__FLAG_DOCUMENT_5,0,0
+num__FLAG_DOCUMENT_4,0,0
+cat__OCCUPATION_TYPE_Cleaning staff,0,0
+cat__OCCUPATION_TYPE_HR staff,0,0
+cat__OCCUPATION_TYPE_High skill tech staff,0,0
+cat__OCCUPATION_TYPE_IT staff,0,0
+num__AMT_REQ_CREDIT_BUREAU_HOUR,0,0
+num__FLAG_DOCUMENT_21,0,0
+num__FLAG_DOCUMENT_10,0,0
+num__FLAG_DOCUMENT_12,0,0
+num__FLAG_DOCUMENT_15,0,0
+num__FLAG_DOCUMENT_17,0,0
+num__FLAG_DOCUMENT_19,0,0
+num__FLAG_DOCUMENT_20,0,0
+cat__OCCUPATION_TYPE_Private service staff,0,0
+cat__OCCUPATION_TYPE_Realty agents,0,0
+cat__ORGANIZATION_TYPE_Industry: type 1,0,0
+cat__ORGANIZATION_TYPE_Electricity,0,0
+cat__ORGANIZATION_TYPE_Emergency,0,0
+cat__ORGANIZATION_TYPE_Culture,0,0
+cat__ORGANIZATION_TYPE_Agriculture,0,0
+cat__ORGANIZATION_TYPE_Advertising,0,0
+cat__ORGANIZATION_TYPE_Industry: type 4,0,0
+cat__ORGANIZATION_TYPE_Industry: type 2,0,0
+cat__ORGANIZATION_TYPE_Industry: type 12,0,0
+cat__ORGANIZATION_TYPE_Industry: type 11,0,0
+cat__ORGANIZATION_TYPE_Housing,0,0
+cat__ORGANIZATION_TYPE_Industry: type 7,0,0
+cat__HOUSETYPE_MODE_missing,0,0
+cat__HOUSETYPE_MODE_specific housing,0,0
+cat__WALLSMATERIAL_MODE_Monolithic,0,0
+cat__WALLSMATERIAL_MODE_Mixed,0,0
+cat__WALLSMATERIAL_MODE_Block,0,0
+cat__HOUSETYPE_MODE_terraced house,0,0
+cat__WALLSMATERIAL_MODE_Wooden,0,0
+num__FLAG_MOBIL,0,0
+cat__WALLSMATERIAL_MODE_Others,0,0
+cat__EMERGENCYSTATE_MODE_missing,0,0

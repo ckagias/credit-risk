@@ -922,6 +922,42 @@ def fairness_plot():
     plt.close(fig)
 
 
+def holdout_plot():
+    holdout = pd.read_csv("results/holdout.csv")
+    gain = pd.read_csv("results/feature_gain.csv")
+    forest = pd.read_csv("results/forest_sql.csv")
+    baseline = pd.read_csv("results/baselines.csv")
+    tuned = gain[(gain["model"] == "lightgbm") & (gain["config"] == "all groups, tuned")]
+    plain = gain[(gain["model"] == "logistic") & (gain["config"] == "all groups")]
+    folds = {
+        "LightGBM": tuned,
+        "random forest": forest[forest["max_features"] == 30],
+        "logistic regression": plain,
+    }
+    cross = {}
+    for model, part in folds.items():
+        cross[model] = {metric: (part[metric].mean(), part[metric].std()) for metric in ("pr_auc", "roc_auc")}
+    for model, name in (("EXT_SOURCE mean, logistic", "EXT_SOURCE mean, logistic"), ("base rate", "base rate for everyone")):
+        part = baseline[baseline["model"] == name].set_index("metric")
+        cross[model] = {metric: (part.loc[metric, "mean"], part.loc[metric, "std"]) for metric in ("pr_auc", "roc_auc")}
+    order = ["LightGBM", "logistic regression", "random forest", "EXT_SOURCE mean, logistic", "base rate"]
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.2), facecolor=SURFACE, sharey=True)
+    for ax, (metric, title) in zip(axes, (("pr_auc", "PR-AUC"), ("roc_auc", "ROC-AUC"))):
+        for y, model in enumerate(order):
+            row = holdout[(holdout["model"] == model) & (holdout["metric"] == metric)].iloc[0]
+            ax.errorbar([row["estimate"]], [y - 0.13], xerr=[[row["estimate"] - row["low"]], [row["high"] - row["estimate"]]], marker="o", markersize=7, color=SERIES[0], elinewidth=1.6, capsize=3, label="holdout, 61,503 applicants (95% bootstrap interval)" if y == 0 else None)
+            mean, std = cross[model][metric]
+            ax.errorbar([mean], [y + 0.13], xerr=[[std], [std]], marker="s", markersize=6, markerfacecolor=SURFACE, markeredgecolor=SERIES[1], markeredgewidth=1.6, color=SERIES[1], elinewidth=1.4, capsize=3, label="5-fold cross-validation (mean, std over folds)" if y == 0 else None)
+        ax.set(xlabel=title, title=title)
+        style_axis(ax)
+    axes[0].set_yticks(range(len(order)), order)
+    axes[0].invert_yaxis()
+    axes[0].legend(loc="lower right", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    fig.tight_layout()
+    fig.savefig(OUT / "holdout.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -953,6 +989,7 @@ def main():
     segments_plot()
     shapley_plot()
     fairness_plot()
+    holdout_plot()
 
 
 if __name__ == "__main__":

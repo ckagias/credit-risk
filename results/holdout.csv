@@ -1,0 +1,16 @@
+model,metric,estimate,low,high
+base rate,pr_auc,0.080728,0.078663,0.082794
+base rate,roc_auc,0.500000,0.500000,0.500000
+base rate,log_loss,0.280543,0.275520,0.285569
+"EXT_SOURCE mean, logistic",pr_auc,0.192093,0.182451,0.201446
+"EXT_SOURCE mean, logistic",roc_auc,0.716489,0.708348,0.724112
+"EXT_SOURCE mean, logistic",log_loss,0.257421,0.252830,0.262332
+logistic regression,pr_auc,0.273105,0.262228,0.285962
+logistic regression,roc_auc,0.777483,0.770729,0.784504
+logistic regression,log_loss,0.239843,0.235397,0.244593
+random forest,pr_auc,0.260496,0.249147,0.273519
+random forest,roc_auc,0.768969,0.761668,0.776151
+random forest,log_loss,0.244032,0.239787,0.248630
+LightGBM,pr_auc,0.295722,0.283468,0.308906
+LightGBM,roc_auc,0.791779,0.785221,0.798557
+LightGBM,log_loss,0.234720,0.230339,0.239400

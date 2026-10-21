@@ -2,7 +2,7 @@
 
 Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, k-means, class imbalance, calibration, the decision threshold and the maths of Phases 6 and 7 are done, and Phase 8 has started with permutation importance and SHAP.
+Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, k-means, class imbalance, calibration, the decision threshold, explainability, error analysis, the fairness check, the holdout score and the maths of Phases 6 to 8 are done. Engineering (Phase 9) and the final write-up (Phase 10) remain.
 
 ## Data
 
@@ -227,3 +227,23 @@ Loan-size weighted cost per 1,000 applicants in units of one refused good loan o
 - Without the gender column the model loses its calibration by gender: it predicts 9.3% for men whose default rate is 10.1% and 7.3% for women whose rate is 7.0%. Dropping the column trades calibration within groups for a smaller gap in refusals, at no cost in PR-AUC.
 - Age is an input (`DAYS_BIRTH` is 12th by permutation importance) and removing it was not tried. Refitting without gender leaves the age results unchanged (under 30 against 60 and over: 0.830).
 - Not examined: gender and age together, other attributes, whether the difference in default rates is itself a product of past lending or of the Home Credit sample, and whether using these inputs is legal in a given market.
+
+## Holdout score
+
+`src/holdout.py` scores each family once on the 61,503 holdout applicants (8.1% default), all on the six SQL feature groups and all refitted on the 246,008 training applicants. The scoring code, the model settings and the threshold were committed before the holdout was read (`df51ca6`), the code was run beforehand on a split of the training part only, and nothing was changed after the result. The script refuses to run again while `results/holdout.csv` exists. The forest settings were checked by cross-validation on the six groups first (`src/forest_sql.py`: 30 columns per split 0.2527 PR-AUC, 60 columns 0.2508). Intervals are 95% bootstrap intervals from 1,000 resamples of the holdout applicants. Chart in `docs/img/holdout.png`, results in `results/holdout.csv` and `results/holdout_cost.csv`.
+
+![PR-AUC and ROC-AUC on the holdout with bootstrap intervals, next to the cross-validation means](docs/img/holdout.png)
+
+| Model | PR-AUC | ROC-AUC | Log loss | Cross-validation PR-AUC (std over folds) |
+|---|---:|---:|---:|---:|
+| LightGBM, tuned | 0.2957 (0.2835 to 0.3089) | 0.7918 (0.7852 to 0.7986) | 0.2347 (0.2303 to 0.2394) | 0.2813 (0.0045) |
+| Logistic regression, `C` = 0.03 | 0.2731 (0.2622 to 0.2860) | 0.7775 (0.7707 to 0.7845) | 0.2398 (0.2354 to 0.2446) | 0.2606 (0.0032) |
+| Random forest, 200 trees | 0.2605 (0.2491 to 0.2735) | 0.7690 (0.7617 to 0.7762) | 0.2440 (0.2398 to 0.2486) | 0.2527 (0.0023) |
+| One-feature logistic (`EXT_SOURCE` mean) | 0.1921 (0.1825 to 0.2014) | 0.7165 (0.7083 to 0.7241) | 0.2574 (0.2528 to 0.2623) | 0.1889 (0.0021) |
+| Base rate for everyone | 0.0807 (0.0787 to 0.0828) | 0.5000 | 0.2805 (0.2755 to 0.2856) | 0.0807 (0.0000) |
+
+LightGBM at the threshold 0.182 (a missed default loses 4.5 times a refused good loan, loan-size weighted, chosen before the holdout was read): cost 277.9 per 1,000 applicants (269.0 to 287.1) against 338.8 (328.9 to 350.2) for refusing nobody, 18.0% less (16.3% to 19.6%). It refuses 11.0% of the applicants (10.7% to 11.2%) and 41.0% of the defaulters (39.7% to 42.4%). The out-of-fold figures on the training part were 16.8% less, 11.0% and 40.0%.
+
+- The order is the one from cross-validation. In cross-validation LightGBM beat logistic regression in 5 of 5 folds (by 0.021 PR-AUC on average) and logistic regression beat the forest in 5 of 5 folds.
+- Every model with any signal scores higher on the holdout than its cross-validation mean: LightGBM by 0.014 PR-AUC, logistic regression by 0.013, the forest by 0.008, and the one-feature model by 0.003. The final models are fitted on 246,008 applicants against 196,806 in each cross-validation fit, and the holdout is a different sample of applicants. The two were not separated.
+- The intervals only reflect the sampling of the holdout applicants, for one fit of each model. The PR-AUC intervals of LightGBM and logistic regression overlap (0.2835 to 0.2860); the ROC-AUC intervals do not (0.7852 against 0.7845). The difference between the two was not computed on the holdout with a paired bootstrap, because the holdout predictions were not kept and the holdout is not scored again.

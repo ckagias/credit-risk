@@ -1,0 +1,2 @@
+model,threshold,cost_per_1000,cost_per_1000_low,cost_per_1000_high,cost_refuse_nobody,cost_refuse_nobody_low,cost_refuse_nobody_high,saving,saving_low,saving_high,share_refused,share_refused_low,share_refused_high,defaulters_refused,defaulters_refused_low,defaulters_refused_high
+LightGBM,0.181818,277.885240,269.026091,287.114475,338.815434,328.865695,350.244410,0.179833,0.162554,0.196463,0.109800,0.107442,0.112271,0.409869,0.396519,0.424006

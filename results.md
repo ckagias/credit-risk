@@ -117,4 +117,4 @@ Calibrated within every gender and age group, yet the error rates differ (out of
 
 ## Reproduce
 
-See `README.md` for the order of the scripts. The tests (`python -m pytest tests`) check every metric, the SQL feature tables, the leakage rules, the maths in `MATH.md` and the holdout guard.
+See `README.md` for the order of the scripts, and `demo.ipynb` for the story in one notebook, which runs from the committed result files. The tests (`python -m pytest tests`) check every metric, the SQL feature tables, the leakage rules, the maths in `MATH.md` and the holdout guard.

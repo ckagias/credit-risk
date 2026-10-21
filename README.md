@@ -2,7 +2,7 @@
 
 Loan default prediction on the Home Credit Default Risk data (307,511 applications, 8.1% default). Classic machine learning algorithms (linear models, trees, boosting and more) are compared with the same metrics and the same cross-validation, with features built in SQL, and then explained, checked for where they fail and for fairness, and scored once on a holdout. The aim is to understand each algorithm: its loss, how it learns and where it fails.
 
-Status: the project is finished except for the optional serving parts, which were not built (FastAPI endpoint, Dockerfile, GitHub Actions) and the optional demo notebook. Experiment tracking uses MLflow.
+Status: the project is finished except for the optional serving parts, which were not built (FastAPI endpoint, Dockerfile, GitHub Actions). Experiment tracking uses MLflow.
 
 ## Results at a glance
 
@@ -30,6 +30,7 @@ The best model is LightGBM with tuned settings on the application columns plus 1
 | `results.md` | The full write-up: every result with its interval, what did not work, what is not established |
 | `MATH.md` | The maths of each algorithm and metric, each checked by a test, with charts made from this project's results |
 | `MODEL_CARD.md` | Intended use, data, metrics, limits and fairness findings of the final model |
+| `demo.ipynb` | The whole story in one notebook, run from the files in `results/` and `docs/img/` only (no data, no database, about 20 seconds) |
 | this file | Results at a glance, setup, how to run, and the results of each stage |
 
 ## Project layout
@@ -71,7 +72,7 @@ The Kaggle files are not in the repository. Accept the rules of the competition 
 | 12 | `python src/tracking.py backfill`, then `python src/tracking.py final` | The tuning study and the final model into MLflow |
 | 13 | `python src/make_plots.py` | Every chart in `docs/img/` from the files in `results/`. The charts of the SHAP values, the SVM margins and the class-weight shift also need the row-level files written by `explain.py`, `svm_math.py` and `weighted_math.py`, which are not in the repository |
 
-The maths checks have their own scripts (`logistic_demo.py`, `tree_math.py`, `forest_math.py`, `boosting_math.py`, `knn_math.py`, `svm_math.py`, `pca_math.py`, `kmeans_math.py`, `weighted_math.py`, with `python src/weighted_math.py gap` for the odds-shift study). Tests: `python -m pytest tests` (395 tests; `tests/test_sql_features.py` needs the database and the feature tables). To browse the MLflow runs: `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
+The maths checks have their own scripts (`logistic_demo.py`, `tree_math.py`, `forest_math.py`, `boosting_math.py`, `knn_math.py`, `svm_math.py`, `pca_math.py`, `kmeans_math.py`, `weighted_math.py`, with `python src/weighted_math.py gap` for the odds-shift study). Tests: `python -m pytest tests` (399 tests; `tests/test_sql_features.py` needs the database and the feature tables). To browse the MLflow runs: `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
 
 ## Data
 

@@ -2,8 +2,6 @@
 
 Loan default prediction on the Home Credit Default Risk data (307,511 applications, 8.1% default). Classic machine learning algorithms (linear models, trees, boosting and more) are compared with the same metrics and the same cross-validation, with features built in SQL, and then explained, checked for where they fail and for fairness, and scored once on a holdout. The aim is to understand each algorithm: its loss, how it learns and where it fails.
 
-Status: the project is finished except for the optional serving parts, which were not built (FastAPI endpoint, Dockerfile, GitHub Actions). Experiment tracking uses MLflow.
-
 ## Results at a glance
 
 The best model is LightGBM with tuned settings on the application columns plus 106 columns built in SQL from the other six tables. Scored once on 61,503 holdout applicants (95% bootstrap intervals):

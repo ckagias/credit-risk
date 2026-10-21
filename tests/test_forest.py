@@ -60,3 +60,14 @@ def test_the_feature_sweep_reports_each_setting_for_each_fold_and_split(parts):
     rows = forest.setting_curve(parts, "max_features", [1, 3, 6], n_estimators=10, min_samples_leaf=5)
     assert len(rows) == 5 * 3 * 2
     assert forest.best_setting(rows, "max_features") in (1, 3, 6)
+
+
+def test_the_sql_forest_check_picks_the_setting_with_the_higher_mean_pr_auc():
+    import pandas as pd
+
+    import forest_sql
+
+    table = pd.DataFrame({"max_features": [30, 30, 60, 60], "pr_auc": [0.20, 0.22, 0.25, 0.19]})
+    assert forest_sql.best_max_features(table) == 60
+    table = pd.DataFrame({"max_features": [30, 30, 60, 60], "pr_auc": [0.26, 0.24, 0.21, 0.23]})
+    assert forest_sql.best_max_features(table) == 30

@@ -39,6 +39,7 @@ class Winsorizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
 
     def fit(self, X, y=None):
         X = np.asarray(X, dtype=float)
+        self.n_features_in_ = X.shape[1]
         self.low_ = np.nanquantile(X, self.lower, axis=0)
         self.high_ = np.nanquantile(X, self.upper, axis=0)
         binary = np.array([len(np.unique(column[~np.isnan(column)])) <= 2 for column in X.T])

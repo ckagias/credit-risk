@@ -156,3 +156,14 @@ def test_clip_option_caps_a_validation_outlier_in_the_pipeline():
     column = names.index("num__income")
     assert plain.transform(validation)[1, column] > 1e5
     assert clipped.transform(validation)[1, column] < 5
+
+
+@pytest.mark.parametrize("clip", [False, True])
+def test_the_fitted_preprocessor_names_every_output_column_with_and_without_clipping(clip):
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame({"a": rng.normal(size=200), "b": rng.integers(0, 2, 200).astype(float), "c": rng.choice(["x", "y"], 200)})
+    X.loc[:20, "a"] = np.nan
+    pre = pp.make_preprocessor(scale=False, clip=clip).fit(X)
+    names = list(pre.get_feature_names_out())
+    assert len(names) == pre.transform(X).shape[1]
+    assert "num__a" in names and "cat__c_x" in names

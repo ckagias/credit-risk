@@ -124,24 +124,25 @@ Logistic regression and LightGBM trained on log loss are already calibrated, and
 
 ## Decision threshold
 
-`src/threshold.py` turns the probabilities into refuse or accept from an assumed cost: a missed default costs `r` times a refused good loan, with `r` = 10 as the working assumption (a default loses most of the loan, a refused good loan loses its margin) and 2, 5 and 20 for sensitivity. For calibrated probabilities the lowest expected cost is at the threshold $1 / (1 + r)$ (0.0909 for `r` = 10). Each fold's cost is scored with the threshold chosen on the other 4 folds (`cv_tuned`, the lowest cost on a grid of 0.005 steps) and with the fixed rules. LightGBM at its defaults, learning rate 0.05, trained on 80% of each training fold (the rest is the calibration part). Chart in `docs/img/threshold.png`.
+`src/threshold.py` turns the probabilities into refuse or accept from an assumed cost per loan: a missed default loses 45% of the credit amount (the Basel loss given default for unsecured loans) and a refused good loan loses a 10% margin on it. Both figures are assumptions. Both costs scale with the loan, so the best threshold is the same for every loan, $1 / (1 + 4.5)$ = 0.182, and the loan size only weights the totals. A flat ratio of 4.5 (every loan equal) and flat ratios of 2, 5, 10 and 20 are scored for comparison. Each fold's cost is scored with the threshold chosen on the other 4 folds (`cv_tuned`, the lowest cost on a grid of 0.005 steps) and with the fixed rules. LightGBM at its defaults, learning rate 0.05, trained on 80% of each training fold (the rest is the calibration part). Chart in `docs/img/threshold.png`.
 
-![Cost against threshold for four cost ratios, and for LightGBM with and without calibration](docs/img/threshold.png)
+![Cost against threshold for the loan-size weighted cost and four flat ratios, and for LightGBM with and without calibration](docs/img/threshold.png)
 
-Cost per 1,000 applicants in units of one refused good loan, `r` = 10, mean of 5 folds:
+Loan-size weighted cost per 1,000 applicants in units of one refused good loan of average size, a missed default costing 4.5, mean of 5 folds:
 
 | Rule | Threshold | Cost | Applicants refused | Defaulters caught |
 |---|---:|---:|---:|---:|
-| Refuse nobody | | 807.3 | 0% | 0% |
-| Fixed 0.5 | 0.5 | 796.4 | 0.2% | 1.5% |
-| Threshold that maximises F1 | 0.143 | 577.3 | 14.9% | 42.7% |
-| Fixed 0.1 | 0.1 | 538.9 | 25.2% | 58.6% |
-| Tuned on the other 4 folds | 0.090 | 535.2 | 28.7% | 62.9% |
-| 1 / (1 + r) | 0.0909 | 535.4 | 28.3% | 62.5% |
+| Refuse nobody | | 337.9 | 0% | 0% |
+| Fixed 0.5 | 0.5 | 334.4 | 0.2% | 1.5% |
+| Fixed 0.1 | 0.1 | 334.5 | 25.2% | 58.6% |
+| Threshold that maximises F1 | 0.143 | 305.6 | 14.9% | 42.7% |
+| Tuned on the other 4 folds | 0.185 | 299.7 | 9.2% | 31.2% |
+| 1 / (1 + r) | 0.182 | 300.1 | 9.6% | 31.9% |
 
-- The formula and the tuned threshold have the same cost: the fold-by-fold difference is -0.13 (std 0.53) per 1,000 applicants, and the formula needs no tuning. The best threshold rises as the cost ratio falls, 0.335, 0.16, 0.09 and 0.05 for `r` = 2, 5, 10 and 20, and with `r` = 2 the cost is almost the same for every rule (157 against 161 for refusing nobody), so the model hardly helps.
-- The threshold that maximises F1 costs 8% more than the formula (577.3 against 535.4, higher in 5 of 5 folds) and refuses half as many applicants, and fixed 0.5 saves only 1.3% over refusing nobody (796.4 against 807.3).
-- The cost ratio is an assumption and the threshold depends on it. A threshold chosen for `r` = 10 costs 88.1% more than the best one if the true ratio is 2, 12.2% more if it is 5 and 15.5% more if it is 20. Choosing for 5 when the truth is 10 costs 11.2% more, and for 20 when the truth is 10, 10.2% more.
-- The formula needs calibrated probabilities. For LightGBM with balanced class weights the lowest cost is at 0.535 (534.7), the odds shift of 11.4 times applied to 0.0909, and the formula's 0.0909 refuses 97.3% of the applicants at a cost of 894.6. After Platt scaling the formula works again (535.9).
-- A calibrated model predicts its own cost: with the probabilities of the LightGBM the expected cost at the formula's threshold is 538.7 against a realised 535.4 (0.6% apart), and for `r` = 20 742.4 against 722.4. For the class-weighted model the expected cost (592.5) is far from the realised one (894.6).
-- Costs are per applicant and equal for all loans. Weighting by loan size, a different cost ratio per loan, or the holdout, are not used here. Results in `results/threshold_folds.csv` and `results/threshold_curve.csv`.
+- The formula and the tuned threshold have the same cost: the fold-by-fold difference is 0.45 (std 0.66) per 1,000 applicants, and the formula needs no tuning. The F1 threshold costs 1.8% more (higher in 5 of 5 folds).
+- At this cost the model saves 11.2% over refusing nobody (300.1 against 337.9). With the earlier assumption of a flat ratio of 10 it saved 33.7% (535.4 against 807.3), so the cost assumption decides how much the model is worth.
+- Weighting by loan size lowers the cost and leaves the threshold where it is: the flat ratio of 4.5 costs 317.0 at the formula's threshold and refusing nobody costs 363.3, against 337.9 weighted, because the defaulters took smaller loans (mean credit 557,477 against 603,014). The best threshold is 0.185 in both.
+- The cost is an assumption and the threshold depends on it. On the loan-size weighted cost, a threshold chosen for a flat ratio of 2, 5, 10 or 20 costs 6.8%, 0.6%, 16.5% or 64.7% more than the best one. The flat ratio of 10 has its best threshold at 0.090 (535.2 per 1,000, formula 535.4).
+- The formula needs calibrated probabilities. For LightGBM with balanced class weights the lowest cost is at 0.692 (300.3), near the 0.717 the odds shift of 11.4 predicts, and the formula's 0.182 refuses 83.8% of the applicants at a cost of 764.5. After Platt scaling the formula works again (300.2).
+- A calibrated model predicts its own cost: the expected cost at the formula's threshold is 295.9 against a realised 300.1 (1.4% apart). For the class-weighted model the expected cost at its best threshold (1,445.7) is far from the realised one (300.3).
+- The ratio of the two costs is the same for every loan (4.5), and the holdout is not used here. Results in `results/threshold_folds.csv` and `results/threshold_curve.csv`.

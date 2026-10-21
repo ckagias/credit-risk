@@ -724,21 +724,34 @@ $$
 \hat p > \frac{c_{FP}}{c_{FP} + c_{FN}} = \frac{1}{1 + r}
 $$
 
-so the best threshold is $t^\star = 1/(1 + r)$, and the expected cost per applicant at that threshold is $\mathbb{E}\left[\min\left(r\,\hat p,\; 1 - \hat p\right)\right] c_{FP}$. It needs calibrated probabilities. A model whose odds are $w$ times too large has its best threshold at the odds $w/r$, that is at $\sigma(\log w - \log r)$ in log-odds terms: for $w = 11.39$ and $r = 10$ the odds are 1.139 and the threshold is 0.532.
+so the best threshold is $t^\star = 1/(1 + r)$, and the expected cost per applicant at that threshold is $\mathbb{E}\left[\min\left(r\,\hat p,\; 1 - \hat p\right)\right] c_{FP}$. It needs calibrated probabilities. A model whose odds are $w$ times too large has its best threshold at the odds $w/r$, that is at $\sigma(\log w - \log r)$ in log-odds terms.
 
-With $r = 10$ and $c_{FP} = 1$ (`results/threshold_folds.csv`, cost per 1,000 applicants, mean of 5 folds):
+**Costs that scale with the loan.** The working cost is per loan: a missed default loses a share $\lambda = 0.45$ of the credit amount $a_i$ (the loss given default Basel uses for unsecured loans) and a refused good loan loses a margin $m = 0.10$ of it (an estimate of the interest income net of funding). Both are assumptions. With $c_{FN,i} = \lambda a_i$ and $c_{FP,i} = m\, a_i$ the loan size cancels in the comparison for one applicant, so the best threshold is the same for every loan,
+
+$$
+t^\star = \frac{m}{m + \lambda} = \frac{1}{1 + 4.5} = 0.182
+$$
+
+and the size only weights the cost totals: $C(t) = \sum_i a_i \left[\lambda\, \mathbb{1}(\text{missed}_i) + m\, \mathbb{1}(\text{refused good}_i)\right]$. The code divides by $m\,\bar a$, so the unit is one refused good loan of average size and the cost of a missed default is 4.5 in the same unit (`src/threshold.py`, scheme `amount`). A flat ratio of 4.5 (`flat_4.5`) and flat ratios of 2, 5, 10 and 20 are scored next to it.
+
+With the loan-size weighted cost and $r = 4.5$ (`results/threshold_folds.csv`, cost per 1,000 applicants, mean of 5 folds):
 
 | Scores | Rule | Threshold | Realised cost | Expected cost from the model's own probabilities |
 |---|---|---:|---:|---:|
-| LightGBM | $1/(1 + r)$ | 0.0909 | 535.4 | 538.7 |
-| LightGBM | tuned on the other 4 folds | 0.090 | 535.2 | 538.7 |
-| LightGBM | fixed 0.5 | 0.5 | 796.4 | 790.2 |
-| LightGBM, class weights | $1/(1 + r)$ | 0.0909 | 894.6 | 592.5 |
-| LightGBM, class weights | tuned on the other 4 folds | 0.535 | 534.7 | 2,234.1 |
-| LightGBM, class weights, Platt | $1/(1 + r)$ | 0.0909 | 535.9 | 528.7 |
+| LightGBM | refuse nobody | | 337.9 | 333.6 |
+| LightGBM | fixed 0.5 | 0.5 | 334.4 | 329.9 |
+| LightGBM | maximises F1 | 0.143 | 305.6 | 301.4 |
+| LightGBM | $1/(1 + r)$ | 0.182 | 300.1 | 295.9 |
+| LightGBM | tuned on the other 4 folds | 0.185 | 299.7 | 295.9 |
+| LightGBM, class weights | $1/(1 + r)$ | 0.182 | 764.5 | 564.7 |
+| LightGBM, class weights | tuned on the other 4 folds | 0.692 | 300.3 | 1,445.7 |
+| LightGBM, class weights, Platt | $1/(1 + r)$ | 0.182 | 300.2 | 300.5 |
 
-![Cost against threshold for four cost ratios, and with and without calibration](docs/img/threshold.png)
+![Cost against threshold for the loan-size weighted cost and four flat ratios, and with and without calibration](docs/img/threshold.png)
 
-- For the calibrated LightGBM the realised cost at the formula's threshold (535.4) is within 0.6% of the cost the model expects from its own probabilities (538.7), and the searched threshold (0.090) is the formula's (0.0909). The expected cost is also close at ratios 2 and 5 (156.1 against 157.2 and 340.9 against 344.0) and 2.8% too high at 20 (742.4 against 722.4).
-- The class-weighted model expects a cost of 592.5 at the formula's threshold, because its probabilities are too high, and pays 894.6 (it refuses 97% of the applicants). The threshold found by search, 0.535, is the one the odds shift predicts (0.532), and the realised cost there (534.7) is as good as the calibrated model's.
-- The threshold depends on $r$, which is assumed. For $r = 2, 5, 10, 20$ the best thresholds are 0.335, 0.16, 0.09 and 0.05. A threshold chosen for $r = 10$ costs 88.1% more than the best one if the true ratio is 2, 12.2% more if it is 5 and 15.5% more if it is 20.
+- The formula and the tuned threshold cost the same: the fold-by-fold difference is 0.45 (std 0.66) per 1,000 applicants. The F1 threshold costs 1.8% more than the formula (higher in 5 of 5 folds).
+- At $r = 4.5$ the model saves 11.2% over refusing nobody (300.1 against 337.9). At $r = 10$ with equal loans it saved 33.7% (535.4 against 807.3), so the choice of cost decides how much the model is worth. The formula's threshold refuses 9.6% of the applicants and catches 31.9% of the defaulters; at $r = 10$ it refused 28.3% and caught 62.5%.
+- Weighting by loan size lowers the cost, not the threshold. The same $r = 4.5$ with equal loans costs 317.0 at the formula's threshold and refusing nobody costs 363.3, against 337.9 weighted. The defaulters took smaller loans (mean credit 557,477 against 603,014 for the others), so a missed default loses less than an average one. The best threshold is 0.185 in both.
+- The class-weighted model without calibration refuses 83.8% of the applicants at the formula's threshold and pays 764.5. The best threshold for it is 0.692 (the odds shift predicts $\sigma(\log 11.39 - \log 4.5) = 0.717$), where the realised cost is 300.3, the calibrated model's. The expected cost it reports there (1,445.7) is 4.8 times the realised one.
+- The calibrated model's expected cost at the formula's threshold is 295.9 against a realised 300.1 (1.4% apart); with Platt scaling on the class-weighted model it is 300.5 against 300.2.
+- $\lambda$ and $m$ are assumptions and only their ratio matters for the threshold. On the loan-size weighted cost, a threshold chosen for a flat ratio of 2, 5, 10 or 20 costs 6.8%, 0.6%, 16.5% or 64.7% more than the best one (0.185), from the pooled out-of-fold curve. The earlier working assumption, $r = 10$ with equal loans, has best threshold 0.090 and costs 16.5% more than the best here. Under it the same rules cost, per 1,000 applicants: formula 535.4, tuned 535.2, F1 577.3, fixed 0.5 796.4, refuse nobody 807.3.

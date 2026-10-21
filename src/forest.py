@@ -44,6 +44,7 @@ def prepare_folds(X, y, n_splits=5, seed=SEED, **preprocess):
                 "y_fit": y[fit_idx],
                 "Z_val": pre.transform(X.iloc[val_idx]),
                 "y_val": y[val_idx],
+                "val_idx": val_idx,
             }
         )
     return prepared

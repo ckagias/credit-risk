@@ -86,7 +86,7 @@ def segment_row(y, p, size, cut=CUT, scheme=SCHEME, boots=BOOTSTRAPS):
         "fnr": missed / positives if positives else float("nan"),
         "fnr_low": fnr_low,
         "fnr_high": fnr_high,
-        "fpr": refused_good / negatives,
+        "fpr": refused_good / negatives if negatives else float("nan"),
         "fpr_low": fpr_low,
         "fpr_high": fpr_high,
         "cost_per_1000": cost,

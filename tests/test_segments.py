@@ -112,3 +112,8 @@ def test_the_income_bands_run_from_low_to_high_and_the_top_band_is_open():
     names = list(labels.cat.categories)
     assert len(names) == 5 and names[-1].endswith("and over")
     assert [int(n.split()[1].rstrip("k")) for n in names] == sorted(int(n.split()[1].rstrip("k")) for n in names)
+
+
+def test_a_group_without_good_loans_has_no_false_positive_rate_instead_of_an_error():
+    row = segments.segment_row(np.array([1, 1, 1]), np.array([0.1, 0.5, 0.3]), np.ones(3), cut=0.2, boots=0)
+    assert np.isnan(row["fpr"]) and row["fnr"] == pytest.approx(1 / 3)

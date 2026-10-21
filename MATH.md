@@ -755,3 +755,72 @@ With the loan-size weighted cost and $r = 4.5$ (`results/threshold_folds.csv`, c
 - The class-weighted model without calibration refuses 83.8% of the applicants at the formula's threshold and pays 764.5. The best threshold for it is 0.692 (the odds shift predicts $\sigma(\log 11.39 - \log 4.5) = 0.717$), where the realised cost is 300.3, the calibrated model's. The expected cost it reports there (1,445.7) is 4.8 times the realised one.
 - The calibrated model's expected cost at the formula's threshold is 295.9 against a realised 300.1 (1.4% apart); with Platt scaling on the class-weighted model it is 300.5 against 300.2.
 - $\lambda$ and $m$ are assumptions and only their ratio matters for the threshold. On the loan-size weighted cost, a threshold chosen for a flat ratio of 2, 5, 10 or 20 costs 6.8%, 0.6%, 16.5% or 64.7% more than the best one (0.185), from the pooled out-of-fold curve. The earlier working assumption, $r = 10$ with equal loans, has best threshold 0.090 and costs 16.5% more than the best here. Under it the same rules cost, per 1,000 applicants: formula 535.4, tuned 535.2, F1 577.3, fixed 0.5 796.4, refuse nobody 807.3.
+
+## Explainability: permutation importance and Shapley values
+
+The working code is in `src/explain.py`, the checks of this section in `src/shapley_math.py` and `tests/test_shapley_math.py`. Results are for the tuned LightGBM on the 477 inputs of the six SQL groups, fold 0 (`results/permutation_importance.csv`, `results/shap_importance.csv`).
+
+### Permutation importance
+
+For a model $f$, a score $s$ (here PR-AUC) and validation data $(X, y)$, shuffle column $j$ across the rows to get $X^{(j,r)}$ and measure the fall in the score, averaged over $R = 5$ shuffles:
+
+$$
+I_j = s(f; X, y) - \frac1R \sum_{r=1}^{R} s\left(f; X^{(j,r)}, y\right)
+$$
+
+Shuffling keeps the distribution of the column and removes its link to the other columns and to $y$. $I_j$ is the loss of accuracy when the model cannot use column $j$, with the model left as it is (nothing is refitted). If two columns carry the same information the model falls back on the other one, so both get a small $I_j$ although together they matter. A column the model ignores has $I_j$ near 0, and noise can make it negative (87 of the 477 columns are).
+
+### Shapley values
+
+Take $M$ players (the features) and a value $v(S)$ for every set $S$ of players. The Shapley value of player $j$ is its average marginal contribution over all orders in which the players can join:
+
+$$
+\phi_j = \sum_{S \subseteq N \setminus \{j\}} \frac{|S|!\,(M - |S| - 1)!}{M!} \left( v(S \cup \{j\}) - v(S) \right)
+$$
+
+The weight is the probability that exactly the set $S$ comes before $j$ in a random order of the $M$ players, so the sum is the same number as the mean of $v(\text{before} \cup \{j\}) - v(\text{before})$ over the $M!$ orders (`tests/test_shapley_math.py` compares the two on random games of 4 players). Four properties hold, and $\phi$ is the only attribution that has all four:
+
+- Efficiency: $\sum_j \phi_j = v(N) - v(\emptyset)$.
+- Symmetry: two players that change every set by the same amount get the same value.
+- Dummy: a player that never changes the value gets 0.
+- Additivity: the values of $v + w$ are the values of $v$ plus those of $w$.
+
+A game of three players, with $v(\emptyset) = 0$, $v(\{0\}) = 10$, $v(\{1\}) = 20$, $v(\{2\}) = 0$, $v(\{0,1\}) = 40$, $v(\{0,2\}) = 10$, $v(\{1,2\}) = 20$ and $v(\{0,1,2\}) = 60$. Each row is one of the $3! = 6$ orders, with the marginal contribution of each player when it joins:
+
+| Order | Player 0 | Player 1 | Player 2 |
+|---|---:|---:|---:|
+| 0, 1, 2 | 10 | 30 | 20 |
+| 0, 2, 1 | 10 | 50 | 0 |
+| 1, 0, 2 | 20 | 20 | 20 |
+| 1, 2, 0 | 40 | 20 | 0 |
+| 2, 0, 1 | 10 | 50 | 0 |
+| 2, 1, 0 | 40 | 20 | 0 |
+| Mean | 130/6 = 21.67 | 190/6 = 31.67 | 40/6 = 6.67 |
+
+The three values add up to 60 = $v(\{0,1,2\})$. Player 2 adds nothing alone or with player 0, and still gets 6.67 for the 20 it adds to the pair $\{0, 1\}$ (`test_the_worked_three_player_example_has_the_hand_computed_shapley_values`). For a linear model $f(x) = \sum_j w_j x_j$ with the absent features set to their means, $v(S) = \sum_{j \in S} w_j x_j + \sum_{j \notin S} w_j \bar x_j$, every marginal contribution of $j$ is $w_j (x_j - \bar x_j)$, so $\phi_j = w_j (x_j - \bar x_j)$ (tested on 4 features).
+
+### SHAP: Shapley values of a model's prediction
+
+For one applicant $x$, SHAP takes the features as the players and $v_x(S) = \mathbb{E}\left[ f(X) \mid X_S = x_S \right]$, the expected prediction when only the features in $S$ are known. Then $v_x(\emptyset) = \mathbb{E} f(X)$ is the base value and $v_x(N) = f(x)$, and efficiency gives
+
+$$
+f(x) = \phi_0 + \sum_{j=1}^{M} \phi_j(x), \qquad \phi_0 = \mathbb{E} f(X)
+$$
+
+For LightGBM $f$ is the log-odds, so the values add on the log-odds scale and not on the probability scale. For a tree, $v_x(S)$ is found by walking down it: at a node that splits on a feature in $S$ follow the branch $x$ takes, and at a node that splits on a feature not in $S$ take both branches, weighted by the share of the training rows that went each way (the node counts, "cover"):
+
+$$
+v_x(S) = \frac{n_\text{left}}{n}\, v_\text{left} + \frac{n_\text{right}}{n}\, v_\text{right}
+$$
+
+A boosted model is a sum of trees, and $v_x$ is the sum of the trees' $v_x$ (`tree_value_function`). Computing $\phi_j$ from the definition needs a sum over $2^{M-1}$ sets for each feature, $2^{476} \approx 10^{143}$ for this model. TreeSHAP gets the same numbers in a time proportional to $T\,L\,D^2$ for $T$ trees of at most $L$ leaves and depth $D$ (here $T = 1204$, $L = 9$), by following all the sets through the tree together. `tests/test_shapley_math.py` checks it on a LightGBM model of 15 trees and 4 features: the values from the definition, with $v_x$ computed by the walk above, equal those of `shap.TreeExplainer` to $10^{-6}$ for three applicants, and $\phi_0 + \sum_j \phi_j$ equals the model's log-odds.
+
+![Permutation importance against mean absolute SHAP value for the 477 columns, and the cumulative share of the SHAP importance](docs/img/shapley.png)
+
+On the credit model the base value is $\phi_0 = -2.944$ (a probability of 0.050; the mean of the log-odds, which is lower than the log-odds of the 8.1% base rate), and the explained applicants add up exactly: the highest-scored one has $\phi_0$ plus the sum of the 477 values equal to 2.070 (probability 0.888), the lowest-scored -6.345 (0.0018). Global importance is the mean of $|\phi_j|$ over applicants: 0.346 for the mean of the `EXT_SOURCE` scores, and the 10 highest columns hold 28% of the total, the 20 highest 44%, the 50 highest 71% and 144 columns 95%. The permutation drop and the mean $|\phi_j|$ agree in rank only partly (Spearman 0.59 over the 477 columns).
+
+What the values do not say:
+
+- $v_x(S)$ above uses the tree's own covers, which makes absent features follow the training data of that tree. A feature the model never splits on gets exactly 0 (`tests/test_explain.py`), and a feature that is correlated with a used one gets its credit through the splits that use it.
+- $\phi_j$ explains the model, not the world: it says how the prediction moved, not what would happen to the applicant's risk if the feature changed.
+- The values are on the log-odds scale, where they add up. The same feature moves the probability by different amounts for different applicants, so a mean of $|\phi_j|$ in log-odds is not a mean change in probability.

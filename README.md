@@ -195,3 +195,35 @@ Loan-size weighted cost per 1,000 applicants in units of one refused good loan o
 - Revolving loans gain little from the model (6.7% saved, 79.0% of defaulters missed), but their ROC-AUC (0.778, interval 0.766 to 0.790) is not clearly different from the overall 0.789; their default rate is 5.5%. Applicants without a bureau record rank worse (ROC-AUC 0.777 against 0.790, intervals not overlapping). They are 14.3% of the applicants and default at 10.1%.
 - Applicants with fewer `EXT_SOURCE` scores known rank slightly worse: ROC-AUC 0.779 with one score known, 0.788 with two and 0.791 with three. Only 139 applicants have none (12 defaulters), too few to say anything: the AUC interval is 0.54 to 0.90 and the model predicts 6.7% against an observed 8.6%.
 - The segments overlap (an applicant is in one income band, one age band, one contract type and so on), so the table does not separate their effects.
+
+## Fairness check
+
+`src/fairness.py` takes the out-of-fold predictions of the best model (the same ones as in the error analysis, threshold 0.182) and compares gender and age groups: default rate, approval rate (share of applicants not refused), the share of defaulters refused (the true positive rate, "equal opportunity"), the share of good loans refused (with the true positive rate, "equalised odds"), precision and calibration. The two applicants coded `XNA` for gender are left out. Gaps against a reference group (women, and applicants aged 60 and over) have 95% bootstrap intervals from 1,000 resamples. The model is also refitted on all 5 folds without `CODE_GENDER`, to see what the column does. Chart in `docs/img/fairness.png`, results in `results/fairness.csv` and `results/fairness_gaps.csv`.
+
+![Default rate, approval rate, defaulters refused and good loans refused by gender and age group, with and without the gender column](docs/img/fairness.png)
+
+| Group | Applicants | Default rate | Approved | Defaulters refused | Good loans refused | Precision of a refusal | Mean predicted against default rate |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Women | 161,887 | 7.0% | 91.5% | 35.1% | 6.5% | 28.9% | 7.0% against 7.0% |
+| Men | 84,119 | 10.1% | 84.3% | 46.5% | 12.2% | 30.0% | 10.0% against 10.1% |
+| Under 30 | 36,281 | 11.5% | 80.3% | 49.6% | 15.8% | 29.0% | 11.5% against 11.5% |
+| 30 to 39 | 65,844 | 9.6% | 85.5% | 44.9% | 11.3% | 29.7% | 9.5% against 9.6% |
+| 40 to 49 | 61,296 | 7.7% | 90.2% | 38.8% | 7.5% | 30.1% | 7.6% against 7.7% |
+| 50 to 59 | 54,477 | 6.1% | 93.8% | 29.6% | 4.7% | 28.8% | 6.1% against 6.1% |
+| 60 and over | 28,110 | 4.9% | 96.8% | 17.7% | 2.4% | 27.5% | 4.8% against 4.9% |
+
+| Gap against the reference | Approval ratio (95% interval) | Defaulters refused, difference | Good loans refused, difference |
+|---|---:|---:|---:|
+| Men against women | 0.922 (0.919 to 0.925) | +11.3 points (9.8 to 12.8) | +5.7 points (5.5 to 6.0) |
+| Men against women, model without gender | 0.945 (0.942 to 0.948) | +6.7 points (5.3 to 8.0) | +3.8 points (3.5 to 4.0) |
+| Under 30 against 60 and over | 0.830 (0.825 to 0.834) | +31.9 points (29.5 to 34.4) | +13.4 points (12.9 to 13.8) |
+| 30 to 39 against 60 and over | 0.883 (0.879 to 0.886) | +27.2 points (24.9 to 29.5) | +8.9 points (8.6 to 9.2) |
+| 40 to 49 against 60 and over | 0.931 (0.928 to 0.934) | +21.1 points (18.7 to 23.6) | +5.0 points (4.8 to 5.4) |
+| 50 to 59 against 60 and over | 0.968 (0.965 to 0.971) | +11.9 points (9.4 to 14.5) | +2.3 points (2.1 to 2.6) |
+
+- The model is calibrated within every gender and age group (mean predicted probability within 0.001 of the default rate) and the precision of a refusal is similar across groups (27.5% to 30.1%), yet the error rates differ a lot. Men have 46.5% of their defaulters refused against 35.1% for women, and 12.2% of their good loans against 6.5%. The younger the applicant, the more of both. The groups have different default rates (10.1% against 7.0%, 11.5% against 4.9%), and one threshold applied to calibrated scores refuses more where more default.
+- All approval ratios are above 0.8, the four-fifths rule of thumb. The lowest is 0.830, for under 30 against 60 and over, and 0.922 for men against women.
+- The gender column adds nothing measurable to the ranking: without it PR-AUC is 0.2809 (0.2809 with it) and ROC-AUC 0.7879 (0.7891). The gaps shrink but remain: the approval ratio of men against women goes from 0.922 to 0.945, the difference in defaulters refused from 11.3 to 6.7 points and in good loans refused from 5.7 to 3.8 points. Since the gaps remain, other columns carry part of the same information; which ones was not tested.
+- Without the gender column the model loses its calibration by gender: it predicts 9.3% for men whose default rate is 10.1% and 7.3% for women whose rate is 7.0%. Dropping the column trades calibration within groups for a smaller gap in refusals, at no cost in PR-AUC.
+- Age is an input (`DAYS_BIRTH` is 12th by permutation importance) and removing it was not tried. Refitting without gender leaves the age results unchanged (under 30 against 60 and over: 0.830).
+- Not examined: gender and age together, other attributes, whether the difference in default rates is itself a product of past lending or of the Home Credit sample, and whether using these inputs is legal in a given market.

@@ -851,6 +851,77 @@ def segments_plot():
     plt.close(fig)
 
 
+def shapley_plot():
+    permutation = pd.read_csv("results/permutation_importance.csv")
+    shapley = pd.read_csv("results/shap_importance.csv")
+    merged = permutation.merge(shapley, on="feature")
+    fig, (scatter, cumulative) = plt.subplots(1, 2, figsize=(12, 4.8), facecolor=SURFACE)
+    positive = merged[merged["importance_mean"] > 0]
+    scatter.scatter(positive["importance_mean"], positive["mean_abs_shap"], s=14, color=SERIES[0], alpha=0.65, linewidths=0)
+    top = positive.nlargest(1, "mean_abs_shap").iloc[0]
+    scatter.annotate(shap_label(top["feature"]), (top["importance_mean"], top["mean_abs_shap"]), xytext=(-8, -4), textcoords="offset points", ha="right", fontsize=8.5, color=INK_SECONDARY)
+    scatter.set(xscale="log", yscale="log", xlabel="Permutation importance (drop in PR-AUC, log scale)", ylabel="Mean |SHAP value| (log-odds, log scale)", title=f"{len(positive)} of {len(merged)} columns have a positive permutation drop")
+    share = shapley["share"].to_numpy().cumsum()
+    cumulative.plot(range(1, len(share) + 1), share, color=SERIES[1], linewidth=2)
+    for k in (10, 20, 50, 144):
+        cumulative.plot([k], [share[k - 1]], marker="o", markersize=6, color=SERIES[1], linewidth=0)
+        cumulative.annotate(f"{k}: {share[k - 1]:.0%}", (k, share[k - 1]), xytext=(6, -12), textcoords="offset points", fontsize=8.5, color=INK_SECONDARY)
+    cumulative.set(xscale="log", xlabel="Columns, ranked by mean |SHAP value|", ylabel="Cumulative share of the total", title="How concentrated the SHAP importance is", ylim=(0, 1.02))
+    for ax in (scatter, cumulative):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "shapley.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def fairness_plot():
+    table = pd.read_csv("results/fairness.csv")
+    groups = list(dict.fromkeys(zip(table["family"], table["group"])))
+    positions, tick_y, tick_labels, cursor, family_seen = {}, [], [], 0.0, None
+    for family, group in groups:
+        if family != family_seen:
+            if family_seen is not None:
+                cursor += 0.6
+            tick_y.append(cursor)
+            tick_labels.append(family.upper())
+            cursor += 1
+            family_seen = family
+        positions[(family, group)] = cursor
+        tick_y.append(cursor)
+        tick_labels.append(group)
+        cursor += 1
+    panels = [
+        ("default_rate", "default_rate_low", "default_rate_high", "Default rate"),
+        ("approval_rate", "approval_low", "approval_high", "Applicants approved"),
+        ("tpr", None, None, "Defaulters refused"),
+        ("fpr", "fpr_low", "fpr_high", "Good loans refused"),
+    ]
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4.6), facecolor=SURFACE, sharey=True)
+    styles = {"with gender": (SERIES[0], "o", -0.16), "without gender": (SERIES[1], "s", 0.16)}
+    for ax, (value, low, high, title) in zip(axes, panels):
+        for model, (color, marker, offset) in styles.items():
+            part = table[table["model"] == model]
+            for _, row in part.iterrows():
+                y = positions[(row["family"], row["group"])] + offset
+                if value == "tpr":
+                    lo, hi = 1 - row["fnr_high"], 1 - row["fnr_low"]
+                else:
+                    lo, hi = row[low], row[high]
+                ax.errorbar([row[value]], [y], xerr=[[row[value] - lo], [hi - row[value]]], marker=marker, markersize=5.5, color=color, elinewidth=1.4, capsize=2.5, markerfacecolor=color if marker == "o" else SURFACE, markeredgewidth=1.5, label=model if (row["family"], row["group"]) == groups[0] else None)
+        ax.set(title=title, xlabel="Share (95% Wilson interval)")
+        style_axis(ax)
+    axes[0].set_yticks(tick_y, tick_labels)
+    for tick, text in zip(axes[0].get_yticklabels(), tick_labels):
+        if text.isupper():
+            tick.set_fontweight("bold")
+            tick.set_color(INK)
+    axes[0].invert_yaxis()
+    axes[1].legend(loc="lower left", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    fig.tight_layout()
+    fig.savefig(OUT / "fairness.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -880,6 +951,8 @@ def main():
     importance_plot()
     applicant_plot()
     segments_plot()
+    shapley_plot()
+    fairness_plot()
 
 
 if __name__ == "__main__":

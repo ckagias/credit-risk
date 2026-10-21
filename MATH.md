@@ -1,6 +1,6 @@
 # Math
 
-Notation. Applicant $i = 1, \dots, n$ has a label $y_i \in \{0, 1\}$ (1 = default) and a predicted probability $\hat p_i$. $P = \sum_i y_i$ is the number of defaulters, $N = n - P$ the number of non-defaulters, and $\pi = P / n$ the base rate. In `application_train`, $\pi = 24{,}825 / 307{,}511 = 0.0807$.
+Notation. Applicant $i = 1, \dots, n$ has a label $y_i \in \lbrace0, 1\rbrace$ (1 = default) and a predicted probability $\hat p_i$. $P = \sum_i y_i$ is the number of defaulters, $N = n - P$ the number of non-defaulters, and $\pi = P / n$ the base rate. In `application_train`, $\pi = 24{,}825 / 307{,}511 = 0.0807$.
 
 ## Evaluation metrics
 
@@ -190,7 +190,7 @@ z_i = b + x_i^\top w, \qquad \hat p_i = \sigma(z_i) = \frac{1}{1 + e^{-z_i}}, \q
 \ln \frac{\hat p_i}{1 - \hat p_i} = z_i
 $$
 
-The score $z_i$ is the log-odds of default. $\sigma$ maps it into $(0, 1)$, with $\sigma(0) = 0.5$, $\sigma(-z) = 1 - \sigma(z)$ and $\sigma'(z) = \sigma(z)\,(1 - \sigma(z))$. Increasing a standardized column by one standard deviation multiplies the odds of default by $e^{w_j}$: with the fitted weights of the chosen model, $e^{-0.489} = 0.61$ for `EXT_SOURCE_3` and $e^{-0.376} = 0.69$ for `EXT_SOURCE_2`.
+The score $z_i$ is the log-odds of default. $\sigma$ maps it into $(0, 1)$, with $\sigma(0) = 0.5$, $\sigma(-z) = 1 - \sigma(z)$ and $\sigma'(z) = \sigma(z)(1 - \sigma(z))$. Increasing a standardized column by one standard deviation multiplies the odds of default by $e^{w_j}$: with the fitted weights of the chosen model, $e^{-0.489} = 0.61$ for `EXT_SOURCE_3` and $e^{-0.376} = 0.69$ for `EXT_SOURCE_2`.
 
 ![The sigmoid and the out-of-fold scores of 20,000 training applicants](docs/img/logistic_sigmoid.png)
 
@@ -237,7 +237,7 @@ $$
 \nabla_w = \frac{1}{n} X^\top (\hat p - y) + \lambda w
 $$
 
-The L1 term adds $\lambda\,\mathrm{sign}(w_j)$ to the gradient of weight $j$ and sets weights that do not earn their place exactly to zero. A small $C$ is a large $\lambda$. For the chosen $C = 0.03$ and $n = 246{,}008$, $\lambda = 1.355 \times 10^{-4}$.
+The L1 term adds $\lambda\mathrm{sign}(w_j)$ to the gradient of weight $j$ and sets weights that do not earn their place exactly to zero. A small $C$ is a large $\lambda$. For the chosen $C = 0.03$ and $n = 246{,}008$, $\lambda = 1.355 \times 10^{-4}$.
 
 Cross-validated PR-AUC against $C$ is flat above $C = 0.01$ for L2 and the training and validation curves are 0.0044 apart at $C = 0.03$, so the model does not overfit. Weights of near-duplicate columns (`AMT_CREDIT` and `AMT_GOODS_PRICE`, correlation 0.987) take large opposite values that cancel.
 
@@ -249,7 +249,7 @@ In the path chart, the L1 panel stops at $C = 0.1$ because a single L1 fit at $C
 
 ### Learning: gradient descent
 
-Gradient descent repeats $w \leftarrow w - \eta\,\nabla_w$ and $b \leftarrow b - \eta\,\partial L / \partial b$. The step size $\eta = 1 / (\tfrac{1}{4}\lambda_{\max}(X^\top X / n) + \lambda)$ is the reciprocal of a bound on the curvature, and is 0.0986 here ($\lambda_{\max} = 39.6$). `src/logistic_math.py` implements the loss, the gradient and this loop in a few lines, and `src/logistic_demo.py` runs it on the real training table.
+Gradient descent repeats $w \leftarrow w - \eta\nabla_w$ and $b \leftarrow b - \eta\partial L / \partial b$. The step size $\eta = 1 / (\tfrac{1}{4}\lambda_{\max}(X^\top X / n) + \lambda)$ is the reciprocal of a bound on the curvature, and is 0.0986 here ($\lambda_{\max} = 39.6$). `src/logistic_math.py` implements the loss, the gradient and this loop in a few lines, and `src/logistic_demo.py` runs it on the real training table.
 
 ![Training objective of gradient descent against the scikit-learn solution](docs/img/logistic_loss_curve.png)
 
@@ -267,7 +267,7 @@ Gradient descent repeats $w \leftarrow w - \eta\,\nabla_w$ and $b \leftarrow b -
 | `EXT_SOURCE` mean, logistic | 0.1889 (0.0021) | 0.7164 (0.0025) | 0.2577 (0.0004) |
 | Logistic regression, all columns, L2, $C = 0.03$ | 0.2249 (0.0045) | 0.7475 (0.0012) | 0.2495 (0.0003) |
 
-The holdout is not used yet.
+The holdout is not used in this section (it is scored once, at the end: see the README).
 
 ## Decision tree
 
@@ -297,7 +297,7 @@ The root split on the 246,008 training applicants (19,860 defaults, $p = 0.0807$
 | Gini | `EXT_SOURCE_3` <= 0.3147 | 35,915 (6,070) | 210,093 (13,790) | 0.1484 | 0.1458 | 0.0027 |
 | Entropy | `EXT_SOURCE_2` <= 0.4146 | 66,867 (9,289) | 179,141 (10,571) | 0.4047 | 0.3936 | 0.0111 |
 
-For the Gini split, $G(0.0807) = 0.1484$, $G(0.169) = 0.2809$ and $G(0.0656) = 0.1227$, so $\Delta = 0.1484 - \tfrac{35{,}915}{246{,}008}\,0.2809 - \tfrac{210{,}093}{246{,}008}\,0.1227 = 0.0027$.
+For the Gini split, $G(0.0807) = 0.1484$, $G(0.169) = 0.2809$ and $G(0.0656) = 0.1227$, so $\Delta = 0.1484 - \tfrac{35{,}915}{246{,}008}0.2809 - \tfrac{210{,}093}{246{,}008}0.1227 = 0.0027$.
 
 ![Gini impurity and entropy against the share of defaults, with the root node and its two children](docs/img/impurity.png)
 
@@ -366,7 +366,7 @@ The three sweeps ran in this order and each used the best setting of the one bef
 - The trees need a minimum leaf size. With `min_samples_leaf` = 1 the training PR-AUC is 1.0 and the validation PR-AUC 0.1967. Averaging many such trees helps, but not enough to make up for the leaves with one applicant each.
 - Trying one column per split is the worst setting (0.1582). The score is flat from 30 to 100 columns and drops slightly for all 300 (0.2208), where every tree sees the same strongest columns and the trees are more alike.
 - The forest with 500 trees, 30 columns per split and `min_samples_leaf` = 30 has PR-AUC 0.2274 (0.0026), ROC-AUC 0.7462 and log loss 0.2513. The logistic regression has 0.2249 (0.0045), 0.7475 and 0.2495. The PR-AUC difference is smaller than the fold-to-fold std, and the logistic regression is ahead on ROC-AUC and log loss.
-- The three settings were chosen on the same folds that are reported, so these scores are slightly optimistic. The holdout is not used yet.
+- The three settings were chosen on the same folds that are reported, so these scores are slightly optimistic. The holdout is not used in this section (it is scored once, at the end: see the README).
 
 ### Variance reduction of bagging
 
@@ -376,9 +376,9 @@ $$
 \mathrm{Var}\left(\frac{1}{B}\sum_{b=1}^{B} T_b\right) = \rho\,\sigma^2 + \frac{1-\rho}{B}\,\sigma^2
 $$
 
-More trees remove the second term but not the first, so $\rho\,\sigma^2$ is the floor. Bootstrap sampling and random columns per split make the trees different, which lowers $\rho$. The correlation is the one between trees across training sets, so it is measured on 8 training sets, each a random 100,000-row subsample of the 196,806 rows of fold 0, with 30 trees per set (`min_samples_leaf` = 30) and the variance taken over the 49,202 validation applicants of that fold. The variance of the mean of groups of $b$ trees is regressed on $1/b$, which gives $\rho\,\sigma^2$ as the intercept and $(1-\rho)\,\sigma^2$ as the slope (`src/forest_math.py`).
+More trees remove the second term but not the first, so $\rho\sigma^2$ is the floor. Bootstrap sampling and random columns per split make the trees different, which lowers $\rho$. The correlation is the one between trees across training sets, so it is measured on 8 training sets, each a random 100,000-row subsample of the 196,806 rows of fold 0, with 30 trees per set (`min_samples_leaf` = 30) and the variance taken over the 49,202 validation applicants of that fold. The variance of the mean of groups of $b$ trees is regressed on $1/b$, which gives $\rho\sigma^2$ as the intercept and $(1-\rho)\sigma^2$ as the slope (`src/forest_math.py`).
 
-| Columns per split | Variance of one tree, $\sigma^2$ | Correlation $\rho$ | Floor $\rho\,\sigma^2$ | Variance of 30 trees | Ratio |
+| Columns per split | Variance of one tree, $\sigma^2$ | Correlation $\rho$ | Floor $\rho\sigma^2$ | Variance of 30 trees | Ratio |
 |---:|---:|---:|---:|---:|---:|
 | 10 | 0.00558 | 0.004 | 0.00002 | 0.00021 | 1 / 26.6 |
 | 30 | 0.00823 | 0.004 | 0.00004 | 0.00032 | 1 / 26.1 |
@@ -407,7 +407,7 @@ $$
 
 Boosting starts from the base rate, $F_0 = \log \frac{\pi}{1-\pi}$, which is $-2.4325$ for $\pi = 0.0807$. Round $m$ then does three things:
 
-1. Compute for every training applicant the negative gradient, called the residual: $r_i = y_i - \hat p_i = -\,\partial \ell / \partial F\,\big|_{F_{m-1}(x_i)}$.
+1. Compute for every training applicant the negative gradient, called the residual: $r_i = y_i - \hat p_i = -\partial \ell / \partial F\big|_{F_{m-1}(x_i)}$.
 2. Fit a regression tree $h_m$ with leaves $R_1, \dots, R_J$ to the residuals $r_i$ by squared error, so each leaf collects applicants whose current probabilities are wrong in the same direction.
 3. Set each leaf to a Newton step on the log loss of its applicants, the sum of the gradients divided by the sum of the second derivatives, and add the tree to the score with a learning rate $\eta$:
 
@@ -511,7 +511,7 @@ The best trial's score is the best of 60, so it is checked on a new split: the d
 - On the new folds the tuned settings score 0.2431, the same as on the tuning folds (0.2432), so the choice of settings did not overfit those folds.
 - The tuned model beats the default in every one of the 10 fold comparisons on all three metrics (smallest PR-AUC gain 0.0012). The gain is small compared with the spread over folds, but it is paired, and it is 0.003 to 0.004 PR-AUC.
 - The tuned model needs 3 to 4 times as many rounds, because trees of 9 leaves with strong penalties take smaller steps.
-- The holdout is not used yet.
+- The holdout is not used in this section (it is scored once, at the end: see the README).
 
 ## k nearest neighbours
 
@@ -521,7 +521,7 @@ $$
 \hat p(x) = \frac{1}{k} \sum_{i \in N_k(x)} y_i, \qquad d(x, x')^2 = \sum_{j=1}^{p} (x_j - x'_j)^2
 $$
 
-Here $N_k(x)$ is the set of the $k$ training rows with the smallest distance $d$. The distances are computed on the clipped and standardised columns of the pipeline, so every column has variance 1 and counts equally. `src/knn_math.py` computes them as $\lVert x \rVert^2 - 2\, x \cdot x' + \lVert x' \rVert^2$ and the probabilities as the mean of $y$ over the $k$ nearest rows. Both match the direct sum of squares and scikit-learn's `KNeighborsClassifier` (`tests/test_knn_math.py`).
+Here $N_k(x)$ is the set of the $k$ training rows with the smallest distance $d$. The distances are computed on the clipped and standardised columns of the pipeline, so every column has variance 1 and counts equally. `src/knn_math.py` computes them as $\lVert x \rVert^2 - 2 x \cdot x' + \lVert x' \rVert^2$ and the probabilities as the mean of $y$ over the $k$ nearest rows. Both match the direct sum of squares and scikit-learn's `KNeighborsClassifier` (`tests/test_knn_math.py`).
 
 There is no loss to minimise. The only setting is $k$, which trades variance for bias. $\hat p$ is an average of $k$ labels, so with a base rate of $\pi = 0.081$ its sampling noise is about $\sqrt{\pi (1 - \pi) / k}$: 0.122 for $k = 5$, 0.039 for $k = 50$ and 0.012 for $k = 500$. With $k = 5$ the prediction can only take the values 0, 0.2, 0.4, … and the noise is larger than the base rate itself.
 
@@ -547,7 +547,7 @@ With many columns, the nearest neighbour is hardly nearer than a typical applica
 
 ## Support vector machine
 
-A support vector machine scores an applicant with $f(x)$ and predicts the default class when $f(x) > 0$. With labels $y_i \in \{-1, +1\}$, the soft-margin problem is
+A support vector machine scores an applicant with $f(x)$ and predicts the default class when $f(x) > 0$. With labels $y_i \in \lbrace-1, +1\rbrace$, the soft-margin problem is
 
 $$
 \min_{w, b} \; \tfrac12 \lVert w \rVert^2 + C \sum_{i=1}^{n} c_i \max\bigl(0,\, 1 - y_i f(x_i)\bigr), \qquad f(x) = w \cdot \phi(x) + b
@@ -578,6 +578,48 @@ and the score is $f(x) = \sum_i \alpha_i y_i K(x_i, x) + b$, where only the supp
 - A larger $C$ narrows the margin (0.2468, 0.0834, 0.0252) and lowers the training hinge loss (0.829, 0.677, 0.548), but the validation hinge loss is lowest at $C = 1$ (0.762) and rises at $C = 10$ (0.775). The best validation ROC-AUC is also at $C = 1$.
 - The primal and dual values agree to 4 significant digits or better at every $C$ (the largest gap is 0.5 out of 30,537), which confirms the optimiser reached the optimum.
 - With the full SVM, 20,000 rows took 84.7 s to fit and 97.5 s to predict the validation fold, against 2.1 s and 0.01 s for the logistic regression, at PR-AUC 0.2123 against 0.2139.
+
+## Naive Bayes
+
+The working code is `src/naive_bayes.py` (the experiment) and `src/naive_bayes_math.py` (the formulas below written out, checked against scikit-learn's `GaussianNB` in `tests/test_naive_bayes_math.py`).
+
+### Model
+
+Bayes' rule gives the probability of default from how likely the applicant's columns are in each class. Naive Bayes assumes the columns are independent given the class, and models each as a normal distribution with a class mean $\mu_{cj}$ and variance $\sigma_{cj}^2$:
+
+$$
+P(y = c \mid x) \propto P(y = c) \prod_{j=1}^{d} \mathcal{N}\left(x_j;\ \mu_{cj},\ \sigma_{cj}^2\right)
+$$
+
+Taking the log of the ratio of the two classes, the log-odds of default is the prior log-odds plus one log-likelihood ratio for each column:
+
+$$
+\log \frac{P(y=1 \mid x)}{P(y=0 \mid x)} = \log \frac{\pi}{1 - \pi} + \sum_{j=1}^{d} \left[ \frac12 \log \frac{\sigma_{0j}^2}{\sigma_{1j}^2} - \frac{(x_j - \mu_{1j})^2}{2\sigma_{1j}^2} + \frac{(x_j - \mu_{0j})^2}{2\sigma_{0j}^2} \right]
+$$
+
+Each term is quadratic in $x_j$, and linear when the two class variances of the column are equal (tested), which is the form of a logistic regression with weights fixed by the class means. The hand-written log-odds equal those of `GaussianNB` to $10^{-9}$ (tested).
+
+### Learning
+
+There is no iteration. The prior is $\pi = P/n$, and $\mu_{cj}$ and $\sigma_{cj}^2$ are the mean and variance of column $j$ among the applicants of class $c$. These maximise the joint likelihood $\prod_i P(x_i, y_i)$ of columns and labels together, where logistic regression maximises the conditional likelihood $\prod_i P(y_i \mid x_i)$. scikit-learn adds a floor to every class variance, $\epsilon = \kappa \max_j \mathrm{Var}(x_j)$, where $\kappa$ is `var_smoothing` and the variance is taken over all applicants (tested).
+
+### What the independence assumption does
+
+If $m$ columns are copies of the same column, the model adds its log-likelihood ratio $m$ times, so the evidence is counted $m$ times and the probabilities become too extreme (tested: with the column copied, the log-odds minus the prior doubles and the log loss rises). When the columns really are independent given the class, the estimated log-odds equal the true ones up to estimation error (tested on simulated data: mean absolute error below 0.01).
+
+![PR-AUC and the share of applicants with a probability above 0.5, by var_smoothing, for three sets of columns](docs/img/naive_bayes.png)
+
+On the validation folds (`results/naive_bayes.csv`, mean of 5 folds, base rate 0.0807), at the default `var_smoothing` = 1e-9:
+
+| Columns | Number of columns | PR-AUC | Log loss | Applicants with probability above 0.5 |
+|---|---:|---:|---:|---:|
+| 3 `EXT_SOURCE` | 3 | 0.1942 | 0.265 | 1.3% |
+| 70 continuous | 70 | 0.1431 | 2.445 | 63.9% |
+| all | 300 | 0.0830 | 29.74 | 94.7% |
+
+- More columns give worse probabilities and a worse ranking: with all 300 columns the PR-AUC (0.0830) is almost the base rate and 94.7% of applicants get a probability above 0.5, against 8.1% who default. This is what repeated counting of correlated evidence would produce, and the columns are strongly correlated (the `_AVG`, `_MEDI` and `_MODE` copies of the housing columns are nearly the same column, see the PCA section). The test above shows the effect on copied columns; it was not isolated on the real data.
+- A larger floor $\epsilon$ flattens every likelihood and shrinks each log-likelihood ratio. PR-AUC rises to 0.1462 at `var_smoothing` = 100 for all columns and to 0.1672 for the 70 continuous columns, and fewer than 0.01% of the applicants have a probability above 0.5. The three `EXT_SOURCE` columns hardly change (0.1942 to 0.1971 at 10), since three columns have little to count twice.
+- After the best floor and a sigmoid calibration the log loss is 0.2784 (all columns), 0.2672 (continuous) and 0.2567 (`EXT_SOURCE`), against 0.2805 for the base rate and 0.2495 for logistic regression on all columns. Logistic regression scores higher on the same columns: PR-AUC 0.2250 against 0.1461 on all 300 and 0.2061 against 0.1672 on the 70 continuous ones, and its weights are fitted jointly, so correlated columns share the credit. On the three `EXT_SOURCE` columns Naive Bayes (0.1971) is slightly above the one-feature logistic on their mean (0.1889), which is a different model.
 
 ## PCA
 
@@ -678,7 +720,7 @@ On the validation folds, for LightGBM with and without `scale_pos_weight` = 11.3
 | Weighted log loss $L_w$: unweighted / weighted model | 2.0592 / 1.0830 |
 
 - The weighted model's probabilities are the unweighted ones shifted by a nearly constant amount on the log-odds scale (the points lie along a line of slope 1), a bit less than the exact $\log w$: 2.34 against 2.43.
-- The gap is a stretch, not a smaller shift. Fitting $z = a + b\,x$ to the log-odds $x$ (unweighted) and $z$ (weighted) gives $a \approx \log w$ for every model tried, and the mean shift is $a + (b - 1)\bar x$, so a slope $b$ above 1 at a mean log-odds $\bar x \approx -2.8$ lowers the shift. A logistic regression has $b = 1.01$ and a mean shift of 2.42. LightGBM with 300 rounds has $b$ = 1.03, 1.05, 1.08 and a mean shift of 2.38, 2.35, 2.23 with 4, 8, 31 leaves (`results/weighted_gap.csv`, fold 0). The weighted trees spread the log-odds more the more flexible they are. The stopping round and the L2 penalty were ruled out (the same number of rounds gives the same slope, and $\lambda = 10^{-3}$ is too small to matter); a larger `min_child_samples` did not close it. That the weights give the trees more to split on is the likely reason and was not tested further.
+- The gap is a stretch, not a smaller shift. Fitting $z = a + bx$ to the log-odds $x$ (unweighted) and $z$ (weighted) gives $a \approx \log w$ for every model tried, and the mean shift is $a + (b - 1)\bar x$, so a slope $b$ above 1 at a mean log-odds $\bar x \approx -2.8$ lowers the shift. A logistic regression has $b = 1.01$ and a mean shift of 2.42. LightGBM with 300 rounds has $b$ = 1.03, 1.05, 1.08 and a mean shift of 2.38, 2.35, 2.23 with 4, 8, 31 leaves (`results/weighted_gap.csv`, fold 0). The weighted trees spread the log-odds more the more flexible they are. The stopping round and the L2 penalty were ruled out (the same number of rounds gives the same slope, and $\lambda = 10^{-3}$ is too small to matter); a larger `min_child_samples` did not close it. That the weights give the trees more to split on is the likely reason and was not tested further.
 - The weighted model has the better weighted loss (1.083 against 2.059) and the much worse ordinary log loss (0.558 against 0.248). The ranking is unchanged to within noise (PR-AUC 0.2386 against 0.2386 in the imbalance comparison), which is why the weights are not a means of finding more defaulters here.
 
 ### Calibration
@@ -718,21 +760,21 @@ $$
 C(t) = c_{FN} \cdot \mathrm{FN}(t) + c_{FP} \cdot \mathrm{FP}(t), \qquad r = \frac{c_{FN}}{c_{FP}}
 $$
 
-If $\hat p$ is the true probability, accepting an applicant has expected cost $\hat p\, c_{FN}$ and refusing one has expected cost $(1 - \hat p)\, c_{FP}$. Refusing is cheaper when $\hat p\, c_{FN} > (1 - \hat p)\, c_{FP}$, that is when
+If $\hat p$ is the true probability, accepting an applicant has expected cost $\hat p c_{FN}$ and refusing one has expected cost $(1 - \hat p) c_{FP}$. Refusing is cheaper when $\hat p c_{FN} > (1 - \hat p) c_{FP}$, that is when
 
 $$
 \hat p > \frac{c_{FP}}{c_{FP} + c_{FN}} = \frac{1}{1 + r}
 $$
 
-so the best threshold is $t^\star = 1/(1 + r)$, and the expected cost per applicant at that threshold is $\mathbb{E}\left[\min\left(r\,\hat p,\; 1 - \hat p\right)\right] c_{FP}$. It needs calibrated probabilities. A model whose odds are $w$ times too large has its best threshold at the odds $w/r$, that is at $\sigma(\log w - \log r)$ in log-odds terms.
+so the best threshold is $t^\star = 1/(1 + r)$, and the expected cost per applicant at that threshold is $\mathbb{E}\left[\min\left(r\hat p, 1 - \hat p\right)\right] c_{FP}$. It needs calibrated probabilities. A model whose odds are $w$ times too large has its best threshold at the odds $w/r$, that is at $\sigma(\log w - \log r)$ in log-odds terms.
 
-**Costs that scale with the loan.** The working cost is per loan: a missed default loses a share $\lambda = 0.45$ of the credit amount $a_i$ (the loss given default Basel uses for unsecured loans) and a refused good loan loses a margin $m = 0.10$ of it (an estimate of the interest income net of funding). Both are assumptions. With $c_{FN,i} = \lambda a_i$ and $c_{FP,i} = m\, a_i$ the loan size cancels in the comparison for one applicant, so the best threshold is the same for every loan,
+**Costs that scale with the loan.** The working cost is per loan: a missed default loses a share $\lambda = 0.45$ of the credit amount $a_i$ (the loss given default Basel uses for unsecured loans) and a refused good loan loses a margin $m = 0.10$ of it (an estimate of the interest income net of funding). Both are assumptions. With $c_{FN,i} = \lambda a_i$ and $c_{FP,i} = m a_i$ the loan size cancels in the comparison for one applicant, so the best threshold is the same for every loan,
 
 $$
 t^\star = \frac{m}{m + \lambda} = \frac{1}{1 + 4.5} = 0.182
 $$
 
-and the size only weights the cost totals: $C(t) = \sum_i a_i \left[\lambda\, \mathbb{1}(\text{missed}_i) + m\, \mathbb{1}(\text{refused good}_i)\right]$. The code divides by $m\,\bar a$, so the unit is one refused good loan of average size and the cost of a missed default is 4.5 in the same unit (`src/threshold.py`, scheme `amount`). A flat ratio of 4.5 (`flat_4.5`) and flat ratios of 2, 5, 10 and 20 are scored next to it.
+and the size only weights the cost totals: $C(t) = \sum_i a_i \left[\lambda \mathbb{1}(\text{missed}_i) + m \mathbb{1}(\text{refused good}_i)\right]$. The code divides by $m\bar a$, so the unit is one refused good loan of average size and the cost of a missed default is 4.5 in the same unit (`src/threshold.py`, scheme `amount`). A flat ratio of 4.5 (`flat_4.5`) and flat ratios of 2, 5, 10 and 20 are scored next to it.
 
 With the loan-size weighted cost and $r = 4.5$ (`results/threshold_folds.csv`, cost per 1,000 applicants, mean of 5 folds):
 
@@ -778,14 +820,14 @@ $$
 \phi_j = \sum_{S \subseteq N \setminus \{j\}} \frac{|S|!\,(M - |S| - 1)!}{M!} \left( v(S \cup \{j\}) - v(S) \right)
 $$
 
-The weight is the probability that exactly the set $S$ comes before $j$ in a random order of the $M$ players, so the sum is the same number as the mean of $v(\text{before} \cup \{j\}) - v(\text{before})$ over the $M!$ orders (`tests/test_shapley_math.py` compares the two on random games of 4 players). Four properties hold, and $\phi$ is the only attribution that has all four:
+The weight is the probability that exactly the set $S$ comes before $j$ in a random order of the $M$ players, so the sum is the same number as the mean of $v(\text{before} \cup \lbrace j\rbrace) - v(\text{before})$ over the $M!$ orders (`tests/test_shapley_math.py` compares the two on random games of 4 players). Four properties hold, and $\phi$ is the only attribution that has all four:
 
 - Efficiency: $\sum_j \phi_j = v(N) - v(\emptyset)$.
 - Symmetry: two players that change every set by the same amount get the same value.
 - Dummy: a player that never changes the value gets 0.
 - Additivity: the values of $v + w$ are the values of $v$ plus those of $w$.
 
-A game of three players, with $v(\emptyset) = 0$, $v(\{0\}) = 10$, $v(\{1\}) = 20$, $v(\{2\}) = 0$, $v(\{0,1\}) = 40$, $v(\{0,2\}) = 10$, $v(\{1,2\}) = 20$ and $v(\{0,1,2\}) = 60$. Each row is one of the $3! = 6$ orders, with the marginal contribution of each player when it joins:
+A game of three players, with $v(\emptyset) = 0$, $v(\lbrace0\rbrace) = 10$, $v(\lbrace1\rbrace) = 20$, $v(\lbrace2\rbrace) = 0$, $v(\lbrace0,1\rbrace) = 40$, $v(\lbrace0,2\rbrace) = 10$, $v(\lbrace1,2\rbrace) = 20$ and $v(\lbrace0,1,2\rbrace) = 60$. Each row is one of the $3! = 6$ orders, with the marginal contribution of each player when it joins:
 
 | Order | Player 0 | Player 1 | Player 2 |
 |---|---:|---:|---:|
@@ -797,7 +839,7 @@ A game of three players, with $v(\emptyset) = 0$, $v(\{0\}) = 10$, $v(\{1\}) = 2
 | 2, 1, 0 | 40 | 20 | 0 |
 | Mean | 130/6 = 21.67 | 190/6 = 31.67 | 40/6 = 6.67 |
 
-The three values add up to 60 = $v(\{0,1,2\})$. Player 2 adds nothing alone or with player 0, and still gets 6.67 for the 20 it adds to the pair $\{0, 1\}$ (`test_the_worked_three_player_example_has_the_hand_computed_shapley_values`). For a linear model $f(x) = \sum_j w_j x_j$ with the absent features set to their means, $v(S) = \sum_{j \in S} w_j x_j + \sum_{j \notin S} w_j \bar x_j$, every marginal contribution of $j$ is $w_j (x_j - \bar x_j)$, so $\phi_j = w_j (x_j - \bar x_j)$ (tested on 4 features).
+The three values add up to 60 = $v(\lbrace0,1,2\rbrace)$. Player 2 adds nothing alone or with player 0, and still gets 6.67 for the 20 it adds to the pair $\lbrace0, 1\rbrace$ (`test_the_worked_three_player_example_has_the_hand_computed_shapley_values`). For a linear model $f(x) = \sum_j w_j x_j$ with the absent features set to their means, $v(S) = \sum_{j \in S} w_j x_j + \sum_{j \notin S} w_j \bar x_j$, every marginal contribution of $j$ is $w_j (x_j - \bar x_j)$, so $\phi_j = w_j (x_j - \bar x_j)$ (tested on 4 features).
 
 ### SHAP: Shapley values of a model's prediction
 
@@ -813,7 +855,7 @@ $$
 v_x(S) = \frac{n_\text{left}}{n}\, v_\text{left} + \frac{n_\text{right}}{n}\, v_\text{right}
 $$
 
-A boosted model is a sum of trees, and $v_x$ is the sum of the trees' $v_x$ (`tree_value_function`). Computing $\phi_j$ from the definition needs a sum over $2^{M-1}$ sets for each feature, $2^{476} \approx 10^{143}$ for this model. TreeSHAP gets the same numbers in a time proportional to $T\,L\,D^2$ for $T$ trees of at most $L$ leaves and depth $D$ (here $T = 1204$, $L = 9$), by following all the sets through the tree together. `tests/test_shapley_math.py` checks it on a LightGBM model of 15 trees and 4 features: the values from the definition, with $v_x$ computed by the walk above, equal those of `shap.TreeExplainer` to $10^{-6}$ for three applicants, and $\phi_0 + \sum_j \phi_j$ equals the model's log-odds.
+A boosted model is a sum of trees, and $v_x$ is the sum of the trees' $v_x$ (`tree_value_function`). Computing $\phi_j$ from the definition needs a sum over $2^{M-1}$ sets for each feature, $2^{476} \approx 10^{143}$ for this model. TreeSHAP gets the same numbers in a time proportional to $TLD^2$ for $T$ trees of at most $L$ leaves and depth $D$ (here $T = 1204$, $L = 9$), by following all the sets through the tree together. `tests/test_shapley_math.py` checks it on a LightGBM model of 15 trees and 4 features: the values from the definition, with $v_x$ computed by the walk above, equal those of `shap.TreeExplainer` to $10^{-6}$ for three applicants, and $\phi_0 + \sum_j \phi_j$ equals the model's log-odds.
 
 ![Permutation importance against mean absolute SHAP value for the 477 columns, and the cumulative share of the SHAP importance](docs/img/shapley.png)
 

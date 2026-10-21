@@ -1,8 +1,77 @@
 # Credit Risk Prediction
 
-Classic machine learning algorithms (linear models, trees, boosting and more) compared with the same metrics and the same cross-validation, with features built in SQL. The aim is to understand each algorithm: its loss, how it learns and where it fails. Data is Home Credit Default Risk (307,511 loan applications, 8.1% default).
+Loan default prediction on the Home Credit Default Risk data (307,511 applications, 8.1% default). Classic machine learning algorithms (linear models, trees, boosting and more) are compared with the same metrics and the same cross-validation, with features built in SQL, and then explained, checked for where they fail and for fairness, and scored once on a holdout. The aim is to understand each algorithm: its loss, how it learns and where it fails.
 
-Status: in progress. Setup, data, evaluation, linear models, trees and ensembles, the SQL features, kNN and SVM, Naive Bayes, PCA, k-means, class imbalance, calibration, the decision threshold, explainability, error analysis, the fairness check, the holdout score and the maths of Phases 6 to 8 are done. Engineering (Phase 9) and the final write-up (Phase 10) remain.
+Status: the project is finished except for the optional serving parts, which were not built (FastAPI endpoint, Dockerfile, GitHub Actions) and the optional demo notebook. Experiment tracking uses MLflow.
+
+## Results at a glance
+
+The best model is LightGBM with tuned settings on the application columns plus 106 columns built in SQL from the other six tables. Scored once on 61,503 holdout applicants (95% bootstrap intervals):
+
+| Model | PR-AUC | ROC-AUC | Log loss |
+|---|---:|---:|---:|
+| LightGBM, tuned | 0.2957 (0.2835 to 0.3089) | 0.7918 (0.7852 to 0.7986) | 0.2347 |
+| Logistic regression | 0.2731 (0.2622 to 0.2860) | 0.7775 (0.7707 to 0.7845) | 0.2398 |
+| Random forest | 0.2605 (0.2491 to 0.2735) | 0.7690 (0.7617 to 0.7762) | 0.2440 |
+| One-feature logistic (`EXT_SOURCE` mean) | 0.1921 (0.1825 to 0.2014) | 0.7165 (0.7083 to 0.7241) | 0.2574 |
+| Base rate for everyone | 0.0807 (0.0787 to 0.0828) | 0.5000 | 0.2805 |
+
+![PR-AUC and ROC-AUC on the holdout, next to the cross-validation means](docs/img/holdout.png)
+
+- Most of the gain came from the features: the SQL feature groups raised LightGBM from 0.2385 to 0.2756 PR-AUC in cross-validation, in 5 of 5 folds. Tuning added 0.006, and class weights, resampling and calibration added nothing to the ranking.
+- The model is calibrated overall and in every segment of 1,000 applicants or more, but it ranks worse for applicants aged 60 and over and under 30, and its error rates differ between men and women and between age groups.
+- Under an assumed cost (a missed default loses 45% of the loan, a refused good loan a 10% margin) the threshold 0.182 costs 18.0% (16.3% to 19.6%) less on the holdout than approving everybody. The cost figures are assumptions, not data.
+- Every model scores higher on the holdout than in cross-validation, and the reason was not isolated.
+
+## Documents
+
+| File | Content |
+|---|---|
+| `results.md` | The full write-up: every result with its interval, what did not work, what is not established |
+| `MATH.md` | The maths of each algorithm and metric, each checked by a test, with charts made from this project's results |
+| `MODEL_CARD.md` | Intended use, data, metrics, limits and fairness findings of the final model |
+| this file | Results at a glance, setup, how to run, and the results of each stage |
+
+## Project layout
+
+```
+src/        one script per stage (loading, features, models, tuning, explanation, holdout, tracking, charts)
+sql/        one SQL file per feature group
+tests/      pytest checks of the metrics, the split, the SQL tables, the maths and the holdout guard
+results/    the numbers behind every table and chart (CSV)
+docs/img/   the charts used in this file and in MATH.md
+data/       the raw files, the SQLite database and caches of out-of-fold predictions (not tracked)
+```
+
+## Setup and how to run
+
+Python 3.12. From the project root:
+
+```
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+export PYTHONPATH=src
+```
+
+The Kaggle files are not in the repository. Accept the rules of the competition `home-credit-default-risk`, download the files into `data/raw/` and run the stages in this order. The numbers in `results/` are committed, so a stage only needs rerunning to reproduce it; times are for a 16-core machine:
+
+| Step | Command | What it does |
+|---|---|---|
+| 1 | `python src/load.py` | Loads the 7 tables into `data/home_credit.db` |
+| 2 | `python src/split.py` | Stratified 80/20 split into training and holdout, fixed seed |
+| 3 | `python src/features.py` | Builds the six SQL feature tables (the 13.6 million row table needs a large SQLite page cache, set in the script) |
+| 4 | `python src/baselines.py`, `logistic.py`, `regularization.py`, `linear_regression.py` | Baselines, logistic regression, ridge and lasso, the loan-amount side study |
+| 5 | `python src/tree.py`, `forest.py`, `boosting.py`, `xgboosting.py` | Trees, forest and the two boosting libraries |
+| 6 | `python src/tuning.py` | 60 Optuna trials (about 24 minutes); `python src/tuning.py track` also logs each trial to MLflow |
+| 7 | `python src/feature_gain.py` | Each SQL feature group added to the application columns, for LightGBM and logistic regression |
+| 8 | `python src/knn_svm.py`, `naive_bayes.py`, `pca.py`, `kmeans.py` | The other algorithms |
+| 9 | `python src/imbalance.py`, `calibration.py`, `threshold.py` | Class weights and resampling, calibration, the cost threshold |
+| 10 | `python src/explain.py`, `segments.py`, `fairness.py` | SHAP and permutation importance, errors by segment, the fairness check (`segments.py` and `fairness.py` each fit the model on 5 folds, about 10 minutes) |
+| 11 | `python src/forest_sql.py`, then `python src/holdout.py` | The forest check on the SQL features, then the holdout score. `holdout.py` refuses to run again while `results/holdout.csv` exists |
+| 12 | `python src/tracking.py backfill`, then `python src/tracking.py final` | The tuning study and the final model into MLflow |
+| 13 | `python src/make_plots.py` | Every chart in `docs/img/` from the files in `results/` |
+
+The maths checks have their own scripts (`logistic_demo.py`, `tree_math.py`, `forest_math.py`, `boosting_math.py`, `knn_math.py`, `svm_math.py`, `pca_math.py`, `kmeans_math.py`, `weighted_math.py`, with `python src/weighted_math.py gap` for the odds-shift study). Tests: `python -m pytest tests` (395 tests; `tests/test_sql_features.py` needs the database and the feature tables). To browse the MLflow runs: `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
 
 ## Data
 

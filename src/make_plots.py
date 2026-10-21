@@ -958,6 +958,28 @@ def holdout_plot():
     plt.close(fig)
 
 
+def naive_bayes_plot():
+    table = pd.read_csv("results/naive_bayes.csv")
+    sweep = table[table["experiment"] == "smoothing"]
+    names = {"all": "all 300 columns", "continuous": "70 continuous columns", "ext": "3 EXT_SOURCE columns"}
+    fig, (score, share) = plt.subplots(1, 2, figsize=(12, 4.6), facecolor=SURFACE)
+    for color, (columns, label) in zip(SERIES, names.items()):
+        part = sweep[sweep["columns"] == columns].groupby("setting")[["pr_auc", "share_p_above_half"]].mean()
+        score.plot(part.index, part["pr_auc"], color=color, linewidth=2, marker="o", markersize=4, label=label)
+        share.plot(part.index, part["share_p_above_half"], color=color, linewidth=2, marker="o", markersize=4, label=label)
+    score.axhline(0.0807, color=REFERENCE, linewidth=1.2, linestyle=(0, (4, 3)))
+    score.text(0.02, 0.0807 + 0.004, "base rate 0.0807", transform=score.get_yaxis_transform(), fontsize=8.5, color=INK_SECONDARY)
+    share.axhline(0.0, color=REFERENCE, linewidth=1)
+    score.set(xscale="log", xlabel="var_smoothing", ylabel="PR-AUC (mean of 5 folds)", title="PR-AUC by smoothing")
+    share.set(xscale="log", xlabel="var_smoothing", ylabel="Share of applicants with probability above 0.5", title="Applicants given a probability above 0.5")
+    score.legend(loc="center left", frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
+    for ax in (score, share):
+        style_axis(ax)
+    fig.tight_layout()
+    fig.savefig(OUT / "naive_bayes.png", dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baseline_curves()
@@ -990,6 +1012,7 @@ def main():
     shapley_plot()
     fairness_plot()
     holdout_plot()
+    naive_bayes_plot()
 
 
 if __name__ == "__main__":
